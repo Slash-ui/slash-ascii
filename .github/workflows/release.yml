@@ -1,21 +1,72 @@
 name: release
 
+# Every push to main is considered for a release. release-please reads the
+# conventional commit messages since the last release, works out the semver
+# bump, and opens a pull request that carries the new version and the
+# changelog entries it derived. Nothing is tagged or published until someone
+# merges that pull request: the merge is the approval.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 
-permissions:
-  contents: read
-  # Required for npm provenance, which ties the published package to this
-  # workflow and commit.
-  id-token: write
+# One release run at a time. Two in flight would race to open the same
+# release pull request.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
 
 jobs:
-  publish:
+  release:
+    name: propose or cut the release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.version }}
+
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # Pull requests opened with the default GITHUB_TOKEN do not start
+          # other workflows, so the release pull request gets no ci run. If
+          # main is protected by required status checks, swap this for a
+          # personal access token with contents and pull-requests write, or
+          # the release pull request will never be mergeable.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    name: publish to npm
+    needs: release
+    # Only on the run where the release pull request was merged, which is
+    # where release-please created the tag and the github release.
+    if: needs.release.outputs.created == 'true'
+    runs-on: ubuntu-latest
+
+    # Configure required reviewers on this environment to hold the npm
+    # publish for a second sign-off. Publishing is the one step that cannot
+    # be taken back: a version number on npm is spent even after unpublish.
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/slash-ascii
+
+    permissions:
+      contents: read
+      # npm provenance ties the published tarball to this workflow and commit.
+      id-token: write
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
 
       - uses: actions/setup-node@v4
         with:
@@ -25,6 +76,8 @@ jobs:
 
       - run: npm ci
 
+      # The tag is already public by the time this runs, so this is the last
+      # place a broken build can be caught before it reaches the registry.
       - run: npm test
 
       - run: npm publish --provenance --access public

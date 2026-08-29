@@ -4,7 +4,10 @@ All notable changes to this project are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+Everything after 0.1.0 is written by release-please from the conventional
+commit messages on `main`, so the way to add an entry here is to write the
+commit that earns it. There is no unreleased section: the pending changes are
+whatever the open release pull request is proposing.
 
 ## [0.1.0]
 
@@ -32,5 +35,4 @@ First release.
 - Configuration via `slash-ascii.config.json`, `.slash-asciirc` or a
   `slashAscii` key in `package.json`.
 
-[Unreleased]: https://github.com/slashui/slash-ascii/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/slashui/slash-ascii/releases/tag/v0.1.0
