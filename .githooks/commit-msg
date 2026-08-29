@@ -1,6 +1,5 @@
 #!/bin/sh
-# Reject tooling metadata in commit messages.
-if grep -qiE 'co-authored-by:.*(claude|copilot|bot@)|generated with|🤖' "$1"; then
-  echo "commit message contains tooling metadata" >&2
-  exit 1
-fi
+# Hooks live in .githooks, which git only looks at once you point it there:
+#
+#   git config core.hooksPath .githooks
+exec "$(git rev-parse --show-toplevel)/scripts/check-commit-msg.sh" "$1"
