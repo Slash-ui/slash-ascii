@@ -9,7 +9,11 @@ an issue first so we can agree on the shape before you spend an evening on it.
 npm install
 npm test
 npm run build
+git config core.hooksPath .githooks
 ```
+
+That last line is worth running once. Hooks are not installed by cloning, and
+the commit-msg hook is what tells you a message is malformed before ci does.
 
 `npm install` pulls sharp and onnxruntime-web. Neither needs a compiler; both
 ship prebuilt binaries. There is no separate model download step, and there
@@ -47,12 +51,62 @@ Model artifacts are pinned by exact byte length and SHA-256 in
 
 ## Commits and pull requests
 
-Write commit messages that say why, not what. The diff already says what.
-Present tense, no prefix convention to memorise.
+Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/),
+because the release is derived from them:
+
+```
+type(optional scope): description
+
+Why, in the present tense. The diff already says what.
+```
+
+The type decides the version bump:
+
+| Type                                    | Bump                   |
+| --------------------------------------- | ---------------------- |
+| `feat`                                  | minor, `0.1.0 → 0.2.0` |
+| `fix`, `perf`                           | patch, `0.1.0 → 0.1.1` |
+| `refactor`, `docs`                      | none, but listed       |
+| `build`, `chore`, `ci`, `style`, `test` | none, not listed       |
+
+A `!` after the type, or a `BREAKING CHANGE:` footer, marks a breaking change.
+While the version is below 1.0.0 that bumps the minor rather than the major.
+
+Scopes are optional and lowercase. `cli`, `render`, `segment`, `models` and
+`pipeline` are the ones in use. Keep the subject under 72 characters, in
+lowercase, with no full stop; write the reasoning in the body.
+
+`scripts/check-commit-msg.sh` enforces this. The commit-msg hook and ci both
+run it, so they cannot disagree about what is acceptable.
 
 Pull requests do not need a template. Say what changed and what you checked. If
 it touches character selection or the mask pipeline, a before-and-after render
-of the same image is worth more than a paragraph.
+of the same image is worth more than a paragraph. Give the pull request a title
+in the same format as a commit subject: a squash merge takes its subject from
+the title.
 
 Tests are expected for behaviour changes. Snapshots are fine for rendering
 output; assert on behaviour rather than on mocks everywhere else.
+
+## Releases
+
+Nobody edits the version by hand, and nobody writes a changelog entry by hand.
+Both are derived, and the pipeline is:
+
+1. A push to `main` runs release-please, which reads the commits since the last
+   release and opens a pull request titled `chore(main): release x.y.z`. It
+   carries the bumped `package.json` version and the new `CHANGELOG.md` section.
+2. That pull request accumulates further changes to `main` until someone merges
+   it. **Merging it is the approval to release.** Until then nothing is tagged
+   and nothing is published.
+3. The merge tags `vx.y.z` and creates the github release from the changelog.
+4. The npm publish waits on the `npm` environment. Configure required reviewers
+   on it for a second sign-off before the package is published with provenance.
+
+So the way to get an entry into the changelog is to write the commit that earns
+it, and the way to control the version is to pick the right type.
+
+Two things the repo needs configured to run this end to end: an `NPM_TOKEN`
+secret with publish rights, and, if `main` requires status checks, a personal
+access token for release-please, since pull requests opened with the default
+token do not start ci runs.
