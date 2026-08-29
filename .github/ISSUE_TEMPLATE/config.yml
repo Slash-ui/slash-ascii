@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security report
-    url: https://github.com/slashui/slash-ascii/security/advisories/new
+    url: https://github.com/Slash-ui/slash-ascii/security/advisories/new
     about: Report a vulnerability privately rather than as a public issue.

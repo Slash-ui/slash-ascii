@@ -42,4 +42,4 @@ First release.
 - Configuration via `slash-ascii.config.json`, `.slash-asciirc` or a
   `slashAscii` key in `package.json`.
 
-[0.1.0]: https://github.com/slashui/slash-ascii/releases/tag/v0.1.0
+[0.1.0]: https://github.com/Slash-ui/slash-ascii/releases/tag/v0.1.0

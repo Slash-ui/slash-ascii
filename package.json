@@ -14,10 +14,10 @@
   "author": "Amin Shariati <amin@slashui.com>",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/slashui/slash-ascii.git"
+    "url": "git+https://github.com/Slash-ui/slash-ascii.git"
   },
-  "homepage": "https://github.com/slashui/slash-ascii#readme",
-  "bugs": "https://github.com/slashui/slash-ascii/issues",
+  "homepage": "https://github.com/Slash-ui/slash-ascii#readme",
+  "bugs": "https://github.com/Slash-ui/slash-ascii/issues",
   "type": "module",
   "engines": {
     "node": ">=20"
