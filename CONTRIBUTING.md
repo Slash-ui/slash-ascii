@@ -100,13 +100,21 @@ Both are derived, and the pipeline is:
    it. **Merging it is the approval to release.** Until then nothing is tagged
    and nothing is published.
 3. The merge tags `vx.y.z` and creates the github release from the changelog.
-4. The npm publish waits on the `npm` environment. Configure required reviewers
-   on it for a second sign-off before the package is published with provenance.
+4. That same run publishes to npm with provenance. A stable version is
+   published under `latest`; a prerelease goes out under `next`, so
+   `npm install slash-ascii` keeps meaning the stable release.
 
 So the way to get an entry into the changelog is to write the commit that earns
-it, and the way to control the version is to pick the right type.
+it, and the way to control the version is to pick the right type. There is no
+approval step after the merge: a gate there would leave a tag and a github
+release for a version npm never received.
 
 Two things the repo needs configured to run this end to end: an `NPM_TOKEN`
-secret with publish rights, and, if `main` requires status checks, a personal
-access token for release-please, since pull requests opened with the default
-token do not start ci runs.
+secret on the `npm` environment with publish rights, and, if `main` requires
+status checks, a personal access token for release-please, since pull requests
+opened with the default token do not start ci runs.
+
+`NPM_TOKEN` can be retired once the package exists on npm: register this
+repository and `release.yml` as a trusted publisher on npmjs.com and the
+`id-token: write` permission the workflow already holds is enough to
+authenticate, with no long-lived token in the repository at all.

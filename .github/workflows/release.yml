@@ -47,20 +47,26 @@ jobs:
     name: publish to npm
     needs: release
     # Only on the run where the release pull request was merged, which is
-    # where release-please created the tag and the github release.
+    # where release-please created the tag and the github release. Merging
+    # that pull request is the approval, so a stable release goes from here
+    # to npm without anyone clicking anything else.
     if: needs.release.outputs.created == 'true'
     runs-on: ubuntu-latest
 
-    # Configure required reviewers on this environment to hold the npm
-    # publish for a second sign-off. Publishing is the one step that cannot
-    # be taken back: a version number on npm is spent even after unpublish.
+    # The environment scopes NPM_TOKEN to this one job and records every
+    # publish as a deployment. It deliberately carries no required
+    # reviewers: a gate here would let a release pull request merge, tag a
+    # version and cut a github release that npm never received, which is a
+    # worse state than either publishing or not.
     environment:
       name: npm
       url: https://www.npmjs.com/package/slash-ascii
 
     permissions:
       contents: read
-      # npm provenance ties the published tarball to this workflow and commit.
+      # Provenance ties the published tarball to this workflow and commit.
+      # It is also what trusted publishing authenticates with, so this
+      # permission covers both ways of getting into the registry.
       id-token: write
 
     steps:
@@ -74,12 +80,35 @@ jobs:
           cache: npm
           registry-url: https://registry.npmjs.org
 
+      # Node 22 ships npm 10, and trusted publishing wants 11.5.1 or newer.
+      # Doing this now means swapping the token for OIDC later is a matter
+      # of deleting the token, not of editing the runtime.
+      - run: npm install -g npm@^11.5.1
+
       - run: npm ci
 
-      # The tag is already public by the time this runs, so this is the last
-      # place a broken build can be caught before it reaches the registry.
+      # The tag and the github release are already public by the time this
+      # runs, so this is the last place a broken build can be stopped before
+      # it reaches a version number that can never be reused.
       - run: npm test
 
-      - run: npm publish --provenance --access public
+      # Read the version from the tag being published rather than from an
+      # action output, so an empty output cannot quietly hand a prerelease
+      # the latest tag.
+      - name: choose the dist-tag
+        id: dist
+        run: |
+          version=$(node -p "require('./package.json').version")
+          case "$version" in
+            *-*) tag=next ;;
+            *) tag=latest ;;
+          esac
+          echo "$version -> $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      # Only a stable version takes latest. A prerelease goes out under next
+      # so that npm install slash-ascii keeps meaning the stable release.
+      - run: npm publish --provenance --access public --tag "$DIST_TAG"
         env:
+          DIST_TAG: ${{ steps.dist.outputs.tag }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
