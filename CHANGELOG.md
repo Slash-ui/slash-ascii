@@ -9,6 +9,13 @@ commit messages on `main`, so the way to add an entry here is to write the
 commit that earns it. There is no unreleased section: the pending changes are
 whatever the open release pull request is proposing.
 
+## [0.1.1](https://github.com/Slash-ui/slash-ascii/compare/v0.1.0...v0.1.1) (2026-08-29)
+
+
+### Documentation
+
+* describe the commit convention and the release flow ([93a2c47](https://github.com/Slash-ui/slash-ascii/commit/93a2c4739de93f7653b1d983ee6b1eef40b7272a))
+
 ## [0.1.0]
 
 First release.
