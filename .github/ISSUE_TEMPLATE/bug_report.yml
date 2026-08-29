@@ -1,0 +1,41 @@
+name: Bug report
+description: Something does not work the way it should
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, and what you got instead.
+      placeholder: |
+        slash-ascii photo.jpg --charset braille
+
+        Expected dots, got blanks below the middle of the image.
+    validations:
+      required: true
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: >
+        Paste the output, or attach a screenshot if the problem is how it looks
+        rather than what it says. If you can attach the input image, that helps
+        more than anything else here.
+      render: text
+
+  - type: input
+    id: version
+    attributes:
+      label: slash-ascii version
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Node version, OS, and terminal
+      placeholder: Node 22.9, macOS 15, iTerm2
+    validations:
+      required: true

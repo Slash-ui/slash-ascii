@@ -1,0 +1,29 @@
+name: Feature request
+description: Suggest something the tool should be able to do
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      description: >
+        Describe the situation rather than the solution. Knowing what you are
+        actually trying to produce usually changes the answer.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you had in mind
+      description: A flag, a character set, an output format, or just a rough shape.
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Before you file
+      options:
+        - label: >
+            This does not require the tool to make a network request on the
+            default path. That is a fixed constraint, not a preference.
+          required: true
