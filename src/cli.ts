@@ -124,7 +124,8 @@ function buildModelCommand(): Command {
     .option('--from <file>', 'install from a local file instead of downloading')
     .option('--model-dir <path>', 'where models are stored')
     .option('--offline', 'never make a network request')
-    .action(async (id: string, options: { from?: string; modelDir?: string; offline?: boolean }) => {
+    .action(async (id: string, _options: unknown, command: Command) => {
+      const options = globals<{ from?: string; modelDir?: string; offline?: boolean }>(command);
       const spec = getModel(id);
       const dir = resolveModelDir(options.modelDir);
       const status = await inspect(dir, spec);
@@ -156,8 +157,8 @@ function buildModelCommand(): Command {
     .command('list')
     .description('show which models are installed')
     .option('--model-dir <path>', 'where models are stored')
-    .action(async (options: { modelDir?: string }) => {
-      const dir = resolveModelDir(options.modelDir);
+    .action(async (_options: unknown, command: Command) => {
+      const dir = resolveModelDir(globals<{ modelDir?: string }>(command).modelDir);
       process.stdout.write(`${tildify(dir)}\n`);
       for (const spec of Object.values(MODELS)) {
         const status = await inspect(dir, spec);
@@ -171,9 +172,9 @@ function buildModelCommand(): Command {
     .command('remove <id>')
     .description('delete a cached model')
     .option('--model-dir <path>', 'where models are stored')
-    .action(async (id: string, options: { modelDir?: string }) => {
+    .action(async (id: string, _options: unknown, command: Command) => {
       const spec = getModel(id);
-      const dir = resolveModelDir(options.modelDir);
+      const dir = resolveModelDir(globals<{ modelDir?: string }>(command).modelDir);
       const removed = await removeModel(dir, spec);
       process.stdout.write(
         removed ? `removed ${tildify(modelPath(dir, spec))}\n` : `${spec.filename} was not installed\n`,
@@ -184,9 +185,9 @@ function buildModelCommand(): Command {
     .command('info <id>')
     .description('show the pinned url, size, checksum and licence')
     .option('--model-dir <path>', 'where models are stored')
-    .action(async (id: string, options: { modelDir?: string }) => {
+    .action(async (id: string, _options: unknown, command: Command) => {
       const spec = getModel(id);
-      const dir = resolveModelDir(options.modelDir);
+      const dir = resolveModelDir(globals<{ modelDir?: string }>(command).modelDir);
       const status = await inspect(dir, spec);
       process.stdout.write(describe(spec, dir, status));
     });
@@ -195,11 +196,21 @@ function buildModelCommand(): Command {
     .command('path')
     .description('print the directory models are stored in')
     .option('--model-dir <path>', 'where models are stored')
-    .action((options: { modelDir?: string }) => {
-      process.stdout.write(resolveModelDir(options.modelDir) + '\n');
+    .action((_options: unknown, command: Command) => {
+      process.stdout.write(resolveModelDir(globals<{ modelDir?: string }>(command).modelDir) + '\n');
     });
 
   return model;
+}
+
+/**
+ * Options declared on the root program are parsed wherever they appear, so
+ * `model path --model-dir X` is captured by the root rather than by the
+ * subcommand that declared the same flag. Merging with the ancestors is what
+ * makes both spellings reach the same place.
+ */
+function globals<T>(command: Command): T {
+  return command.optsWithGlobals() as T;
 }
 
 function describe(spec: ModelSpec, dir: string, status: Status): string {
