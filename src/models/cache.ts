@@ -18,10 +18,10 @@ const MANIFEST = 'manifest.json';
 const REHASH_LIMIT_BYTES = 32 * 1024 * 1024;
 
 export interface ManifestEntry {
-  filename: string;
   bytes: number;
   sha256: string;
   mtimeMs: number;
+  /** Never read back. Provenance for whoever opens this file by hand. */
   installedAt: string;
 }
 
@@ -29,12 +29,13 @@ export interface Manifest {
   models: Record<string, ManifestEntry>;
 }
 
-/** `--model-dir`, then the environment, then the per-OS cache directory. */
+/**
+ * The override, or the per-OS cache directory. The caller supplies the override,
+ * including any environment variable behind it, so this stays a pure function of
+ * its argument rather than of the ambient environment.
+ */
 export function resolveModelDir(override?: string): string {
-  if (override) return override;
-  const fromEnv = process.env.SLASH_ASCII_MODEL_DIR;
-  if (fromEnv) return fromEnv;
-  return join(envPaths('slash-ascii', { suffix: '' }).cache, 'models');
+  return override || join(envPaths('slash-ascii', { suffix: '' }).cache, 'models');
 }
 
 export function modelPath(dir: string, spec: ModelSpec): string {
@@ -62,7 +63,6 @@ export async function recordInstall(dir: string, spec: ModelSpec): Promise<void>
   const manifest = await readManifest(dir);
   const info = await stat(modelPath(dir, spec));
   manifest.models[spec.id] = {
-    filename: spec.filename,
     bytes: info.size,
     sha256: spec.sha256,
     mtimeMs: info.mtimeMs,
@@ -71,7 +71,7 @@ export async function recordInstall(dir: string, spec: ModelSpec): Promise<void>
   await writeFile(join(dir, MANIFEST), JSON.stringify(manifest, null, 2) + '\n');
 }
 
-export async function forgetInstall(dir: string, spec: ModelSpec): Promise<void> {
+async function forgetInstall(dir: string, spec: ModelSpec): Promise<void> {
   const manifest = await readManifest(dir);
   delete manifest.models[spec.id];
   await writeFile(join(dir, MANIFEST), JSON.stringify(manifest, null, 2) + '\n');
@@ -82,6 +82,7 @@ export type Status =
   | { state: 'installed'; bytes: number }
   | { state: 'corrupt'; detail: string };
 
+/** Reports what is in the cache, for the `model` subcommands. */
 export async function inspect(dir: string, spec: ModelSpec): Promise<Status> {
   let info;
   try {
@@ -89,17 +90,9 @@ export async function inspect(dir: string, spec: ModelSpec): Promise<Status> {
   } catch {
     return { state: 'missing' };
   }
-  if (info.size !== spec.bytes) {
-    return { state: 'corrupt', detail: `expected ${spec.bytes} bytes, found ${info.size}` };
-  }
-
-  const entry = (await readManifest(dir)).models[spec.id];
-  const trusted =
-    info.size > REHASH_LIMIT_BYTES &&
-    entry?.sha256 === spec.sha256 &&
-    entry.bytes === info.size &&
-    entry.mtimeMs === info.mtimeMs;
-  if (trusted) return { state: 'installed', bytes: info.size };
+  const size = sizeMismatch(spec, info.size);
+  if (size) return { state: 'corrupt', detail: size };
+  if (await trusted(dir, spec, info)) return { state: 'installed', bytes: info.size };
 
   const actual = await hashFile(modelPath(dir, spec));
   if (actual !== spec.sha256) {
@@ -108,16 +101,61 @@ export async function inspect(dir: string, spec: ModelSpec): Promise<Status> {
   return { state: 'installed', bytes: info.size };
 }
 
-/** Reads a model, refusing to hand back bytes that failed verification. */
-export async function loadModel(dir: string, spec: ModelSpec): Promise<Uint8Array> {
-  const status = await inspect(dir, spec);
-  if (status.state !== 'installed') {
-    throw new IntegrityError(
-      `cached ${spec.filename} failed verification (${status.state === 'corrupt' ? status.detail : 'file is missing'}); ` +
-        `run "slash-ascii model remove ${spec.id}" and install it again`,
-    );
+/** The file is there. Whether it is the right file is `loadModel`'s decision. */
+export async function exists(dir: string, spec: ModelSpec): Promise<boolean> {
+  try {
+    await stat(modelPath(dir, spec));
+    return true;
+  } catch {
+    return false;
   }
-  return new Uint8Array(await readFile(modelPath(dir, spec)));
+}
+
+/**
+ * Reads a model, refusing to hand back bytes that failed verification. The file
+ * is read exactly once and hashed from that buffer, rather than streamed a
+ * second time to check what the read already has in memory.
+ */
+export async function loadModel(dir: string, spec: ModelSpec): Promise<Uint8Array> {
+  const path = modelPath(dir, spec);
+  let info;
+  try {
+    info = await stat(path);
+  } catch {
+    throw corrupt(spec, 'the file is missing');
+  }
+  const size = sizeMismatch(spec, info.size);
+  if (size) throw corrupt(spec, size);
+
+  const skipHash = await trusted(dir, spec, info);
+  const bytes = new Uint8Array(await readFile(path));
+  if (!skipHash) {
+    const actual = createHash('sha256').update(bytes).digest('hex');
+    if (actual !== spec.sha256) {
+      throw corrupt(spec, `expected sha256 ${spec.sha256}, found ${actual}`);
+    }
+  }
+  return bytes;
+}
+
+function corrupt(spec: ModelSpec, detail: string): IntegrityError {
+  return new IntegrityError(
+    `cached ${spec.filename} does not match the pinned artifact (${detail}); ` +
+      `run "slash-ascii model remove ${spec.id}" and install it again`,
+  );
+}
+
+function sizeMismatch(spec: ModelSpec, actual: number): string | null {
+  return actual === spec.bytes ? null : `expected ${spec.bytes} bytes, found ${actual}`;
+}
+
+/** Whether the manifest already vouches for this exact file, hash and all. */
+async function trusted(dir: string, spec: ModelSpec, info: { size: number; mtimeMs: number }): Promise<boolean> {
+  if (info.size <= REHASH_LIMIT_BYTES) return false;
+  const entry = (await readManifest(dir)).models[spec.id];
+  return (
+    entry?.sha256 === spec.sha256 && entry.bytes === info.size && entry.mtimeMs === info.mtimeMs
+  );
 }
 
 export async function removeModel(dir: string, spec: ModelSpec): Promise<boolean> {
@@ -134,7 +172,7 @@ export async function ensureDir(dir: string): Promise<void> {
   await mkdir(dir, { recursive: true });
 }
 
-export async function hashFile(path: string): Promise<string> {
+async function hashFile(path: string): Promise<string> {
   const hash = createHash('sha256');
   await pipeline(createReadStream(path), hash);
   return hash.digest('hex');

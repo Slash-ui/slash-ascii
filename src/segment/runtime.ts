@@ -3,7 +3,6 @@ import { dirname } from 'node:path';
 
 export interface OrtValue {
   data: Float32Array;
-  dims: readonly number[];
 }
 
 export interface OrtSession {

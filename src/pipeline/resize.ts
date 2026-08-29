@@ -1,21 +1,24 @@
 import type sharp from 'sharp';
-import type { Raster, Size } from './decode.js';
+import type { Raster, Size } from '../raster.js';
 import { rasterize } from './decode.js';
 
 export interface Grid {
   cols: number;
   rows: number;
+  /** The cell geometry this grid was fitted for, carried so renderers need not be told again. */
+  charAspect: number;
 }
 
 export interface FitOptions {
   width?: number;
   height?: number;
-  /** Cell height divided by cell width. Terminal cells are about twice as tall as wide. */
+  /** Cell width divided by cell height. Terminal cells are about twice as tall as wide. */
   charAspect: number;
-  /** Used when neither dimension is given and stdout has no width. */
-  fallbackCols: number;
   terminalCols?: number;
 }
+
+/** Used when no width is given and there is no terminal to measure. */
+export const FALLBACK_COLS = 80;
 
 /**
  * Characters are not square, so the row count has to be scaled by the cell
@@ -25,16 +28,21 @@ export function fitGrid(image: Size, opts: FitOptions): Grid {
   const aspect = image.height / image.width;
   const { width, height, charAspect } = opts;
 
-  if (width && height) return clamp({ cols: width, rows: height });
-  if (width) return clamp({ cols: width, rows: Math.round(width * aspect * charAspect) });
-  if (height) return clamp({ cols: Math.round(height / aspect / charAspect), rows: height });
+  if (width && height) return clamp(width, height, charAspect);
+  if (width) return clamp(width, Math.round(width * aspect * charAspect), charAspect);
+  if (height) return clamp(Math.round(height / aspect / charAspect), height, charAspect);
 
-  const cols = opts.terminalCols ?? opts.fallbackCols;
-  return clamp({ cols, rows: Math.round(cols * aspect * charAspect) });
+  const cols = opts.terminalCols ?? FALLBACK_COLS;
+  return clamp(cols, Math.round(cols * aspect * charAspect), charAspect);
 }
 
-function clamp(grid: Grid): Grid {
-  return { cols: Math.max(1, grid.cols), rows: Math.max(1, grid.rows) };
+function clamp(cols: number, rows: number, charAspect: number): Grid {
+  return { cols: Math.max(1, cols), rows: Math.max(1, rows), charAspect };
+}
+
+/** Bounds an image to a maximum edge length without enlarging it. */
+export function limit(img: sharp.Sharp, maxEdge: number): sharp.Sharp {
+  return img.resize(maxEdge, maxEdge, { fit: 'inside', withoutEnlargement: true });
 }
 
 /**

@@ -6,34 +6,38 @@ import { fixture } from './helpers.js';
 describe('grid fitting', () => {
   const square = { width: 100, height: 100 };
 
+  const aspect = { charAspect: 0.5 };
+
   it('halves the row count because cells are twice as tall as they are wide', () => {
-    expect(fitGrid(square, { charAspect: 0.5, fallbackCols: 80, width: 40 })).toEqual({
-      cols: 40,
-      rows: 20,
-    });
+    expect(fitGrid(square, { ...aspect, width: 40 })).toEqual({ cols: 40, rows: 20, ...aspect });
   });
 
   it('derives columns when only a height is given', () => {
-    expect(fitGrid({ width: 200, height: 100 }, { charAspect: 0.5, fallbackCols: 80, height: 20 })).toEqual(
-      { cols: 80, rows: 20 },
-    );
+    expect(fitGrid({ width: 200, height: 100 }, { ...aspect, height: 20 })).toEqual({
+      cols: 80,
+      rows: 20,
+      ...aspect,
+    });
   });
 
   it('honours both dimensions when both are given, distortion and all', () => {
-    expect(
-      fitGrid(square, { charAspect: 0.5, fallbackCols: 80, width: 10, height: 99 }),
-    ).toEqual({ cols: 10, rows: 99 });
+    expect(fitGrid(square, { ...aspect, width: 10, height: 99 })).toEqual({
+      cols: 10,
+      rows: 99,
+      ...aspect,
+    });
   });
 
   it('falls back when there is no terminal width to read', () => {
-    expect(fitGrid(square, { charAspect: 0.5, fallbackCols: 80 })).toEqual({ cols: 80, rows: 40 });
+    expect(fitGrid(square, aspect)).toEqual({ cols: 80, rows: 40, ...aspect });
   });
 
   it('never produces an empty grid', () => {
-    expect(fitGrid({ width: 4000, height: 1 }, { charAspect: 0.5, fallbackCols: 80 })).toEqual({
-      cols: 80,
-      rows: 1,
-    });
+    expect(fitGrid({ width: 4000, height: 1 }, aspect)).toEqual({ cols: 80, rows: 1, ...aspect });
+  });
+
+  it('carries the cell aspect so renderers do not have to be told again', () => {
+    expect(fitGrid(square, { charAspect: 0.42, width: 10 }).charAspect).toBe(0.42);
   });
 });
 

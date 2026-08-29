@@ -15,6 +15,8 @@ export function threshold(mask: Float32Array, level: number): Uint8Array {
 /**
  * Square structuring elements are separable, so a horizontal pass followed by a
  * vertical one gives the same result as the 2D window at a fraction of the work.
+ * Both operations reduce to "is the target value anywhere in this window", which
+ * lets the scan stop at the first hit instead of reading every tap.
  *
  * Samples outside the image are skipped, which means erosion sees the outside as
  * foreground. A subject that runs off the edge of the frame therefore keeps its
@@ -24,18 +26,22 @@ export function threshold(mask: Float32Array, level: number): Uint8Array {
  */
 function morph(bin: Uint8Array, w: number, h: number, radius: number, dilate: boolean): Uint8Array {
   if (radius < 1) return bin;
-  const seed = dilate ? 0 : 1;
-  const pick = dilate ? (a: number, b: number) => a | b : (a: number, b: number) => a & b;
+  // Dilation looks for a 1 and takes it; erosion looks for a 0 and takes that.
+  const hit = dilate ? 1 : 0;
+  const seed = 1 - hit;
 
   const mid = new Uint8Array(bin.length);
   for (let y = 0; y < h; y++) {
     const row = y * w;
     for (let x = 0; x < w; x++) {
+      const from = x > radius ? x - radius : 0;
+      const to = x + radius < w ? x + radius : w - 1;
       let acc = seed;
-      for (let dx = -radius; dx <= radius; dx++) {
-        const sx = x + dx;
-        if (sx < 0 || sx >= w) continue;
-        acc = pick(acc, bin[row + sx]);
+      for (let s = row + from, end = row + to; s <= end; s++) {
+        if (bin[s] === hit) {
+          acc = hit;
+          break;
+        }
       }
       mid[row + x] = acc;
     }
@@ -43,14 +49,18 @@ function morph(bin: Uint8Array, w: number, h: number, radius: number, dilate: bo
 
   const out = new Uint8Array(bin.length);
   for (let y = 0; y < h; y++) {
+    const from = (y > radius ? y - radius : 0) * w;
+    const to = (y + radius < h ? y + radius : h - 1) * w;
+    const row = y * w;
     for (let x = 0; x < w; x++) {
       let acc = seed;
-      for (let dy = -radius; dy <= radius; dy++) {
-        const sy = y + dy;
-        if (sy < 0 || sy >= h) continue;
-        acc = pick(acc, mid[sy * w + x]);
+      for (let s = from + x, end = to + x; s <= end; s += w) {
+        if (mid[s] === hit) {
+          acc = hit;
+          break;
+        }
       }
-      out[y * w + x] = acc;
+      out[row + x] = acc;
     }
   }
   return out;

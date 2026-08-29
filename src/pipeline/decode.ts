@@ -1,18 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
+import type { Raster, Size } from '../raster.js';
 import { DecodeError, InputError } from '../errors.js';
-
-/** Interleaved RGBA, 8 bits per channel, row-major. */
-export interface Raster {
-  width: number;
-  height: number;
-  data: Uint8ClampedArray;
-}
-
-export interface Size {
-  width: number;
-  height: number;
-}
 
 /** Reads an image file, or stdin when `source` is `-`. */
 export async function readInput(source: string): Promise<Buffer> {

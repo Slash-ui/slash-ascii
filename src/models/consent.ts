@@ -42,7 +42,7 @@ converted as-is.
 `;
 }
 
-export function manualInstructions(spec: ModelSpec): string {
+function manualInstructions(spec: ModelSpec): string {
   return `Install it with:
   slash-ascii model install ${spec.id}
 

@@ -1,5 +1,5 @@
 import type { AnalysedGrid } from './analyze.js';
-import type { Raster } from './decode.js';
+import { regionMean } from './analyze.js';
 
 export type RGB = readonly [number, number, number];
 
@@ -12,6 +12,8 @@ export interface RenderCell {
 export interface Frame {
   cols: number;
   rows: number;
+  /** Cell width divided by cell height, for renderers that lay out their own grid. */
+  charAspect: number;
   cells: RenderCell[];
 }
 
@@ -29,46 +31,47 @@ export const RAMPS = {
 /** Ordered by orientation: 0, 45, 90, 135 degrees, with y pointing down. */
 const EDGE_CHARS = ['-', '\\', '|', '/'] as const;
 
+/**
+ * Floor on mean gradient magnitude. Stops a photograph of a wall from being
+ * drawn entirely out of its own faint texture.
+ */
+const EDGE_FLOOR = 0.09;
+
+/**
+ * Share of cells that stay tonal. A fixed magnitude cutoff cannot serve both a
+ * line drawing and a photograph, so the working cutoff is drawn from the image's
+ * own distribution and only floored by EDGE_FLOOR.
+ */
+const EDGE_QUANTILE = 0.85;
+
+/** How much the gradients in a cell must agree before its angle is trusted. */
+const EDGE_COHERENCE = 0.5;
+
+/** Cells with less coverage than this become blanks. */
+const ALPHA_CUTOFF = 0.5;
+
 const BLANK: RenderCell = { ch: ' ', fg: null, bg: null };
+
+/**
+ * The one definition of "this cell paints nothing", shared by every renderer.
+ * They each used to re-derive it by sniffing the character, which would quietly
+ * stop working the day a charset picks a different empty glyph.
+ */
+export function isBlank(cell: RenderCell): boolean {
+  return cell.bg === null && cell.ch === ' ';
+}
 
 export interface CharmapOptions {
   charset: Charset;
   ramp: string;
   invert: boolean;
   color: boolean;
-  /** Edge-aware character selection. */
+  /** Edge-aware character selection. Requires a grid analysed with gradients. */
   edges: boolean;
-  /**
-   * Floor on mean gradient magnitude. Stops a photograph of a wall from being
-   * drawn entirely out of its own faint texture.
-   */
-  edgeThreshold: number;
-  /**
-   * Share of cells that stay tonal. A fixed magnitude cutoff cannot serve both a
-   * line drawing and a photograph, so the working cutoff is drawn from the
-   * image's own distribution and only floored by `edgeThreshold`.
-   */
-  edgeQuantile: number;
-  /** How much the gradients in a cell must agree before its angle is trusted. */
-  edgeCoherence: number;
-  /** Cells with less coverage than this become blanks. */
-  alphaCutoff: number;
 }
 
-export const CHARMAP_DEFAULTS = {
-  charset: 'ascii',
-  ramp: RAMPS.standard,
-  invert: false,
-  color: true,
-  edges: true,
-  edgeThreshold: 0.09,
-  edgeQuantile: 0.85,
-  edgeCoherence: 0.5,
-  alphaCutoff: 0.5,
-} as const satisfies CharmapOptions;
-
 export function mapGrid(grid: AnalysedGrid, opts: CharmapOptions): Frame {
-  const cutoff = opts.edges ? edgeCutoff(grid, opts) : Infinity;
+  const cutoff = opts.edges ? edgeCutoff(grid) : Infinity;
   const cells: RenderCell[] = new Array(grid.cols * grid.rows);
   for (let y = 0; y < grid.rows; y++) {
     for (let x = 0; x < grid.cols; x++) {
@@ -81,13 +84,12 @@ export function mapGrid(grid: AnalysedGrid, opts: CharmapOptions): Frame {
             : asciiCell(grid, i, opts, cutoff);
     }
   }
-  return { cols: grid.cols, rows: grid.rows, cells };
+  return { cols: grid.cols, rows: grid.rows, charAspect: grid.charAspect, cells };
 }
 
-function edgeCutoff(grid: AnalysedGrid, opts: CharmapOptions): number {
+function edgeCutoff(grid: AnalysedGrid): number {
   const sorted = grid.cells.map((cell) => cell.edge).sort((a, b) => a - b);
-  const quantile = sorted[Math.floor(opts.edgeQuantile * (sorted.length - 1))];
-  return Math.max(opts.edgeThreshold, quantile);
+  return Math.max(EDGE_FLOOR, sorted[Math.floor(EDGE_QUANTILE * (sorted.length - 1))]);
 }
 
 function asciiCell(
@@ -97,10 +99,10 @@ function asciiCell(
   cutoff: number,
 ): RenderCell {
   const cell = grid.cells[index];
-  if (cell.alpha < opts.alphaCutoff) return BLANK;
+  if (cell.alpha < ALPHA_CUTOFF) return BLANK;
 
-  const isEdge = cell.edge >= cutoff && cell.coherence >= opts.edgeCoherence;
-  const ch = isEdge ? edgeChar(cell.angle) : rampChar(cell.lum, opts);
+  const isEdge = cell.edge >= cutoff && cell.coherence >= EDGE_COHERENCE;
+  const ch = isEdge ? edgeChar(cell.angle) : rampChar(cell.lum, opts.ramp, opts.invert);
   if (ch === ' ') return BLANK;
   return { ch, fg: opts.color ? rgb(cell.r, cell.g, cell.b) : null, bg: null };
 }
@@ -109,10 +111,10 @@ function edgeChar(angle: number): string {
   return EDGE_CHARS[Math.round(angle / (Math.PI / 4)) % 4];
 }
 
-function rampChar(lum: number, opts: CharmapOptions): string {
-  const level = opts.invert ? 1 - lum : lum;
-  const i = Math.floor(level * opts.ramp.length);
-  return opts.ramp[Math.min(opts.ramp.length - 1, Math.max(0, i))];
+function rampChar(lum: number, ramp: string, invert: boolean): string {
+  const level = invert ? 1 - lum : lum;
+  const i = Math.floor(level * ramp.length);
+  return ramp[Math.min(ramp.length - 1, Math.max(0, i))];
 }
 
 /**
@@ -121,22 +123,23 @@ function rampChar(lum: number, opts: CharmapOptions): string {
  * the shade ramp stands in.
  */
 function blockCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOptions): RenderCell {
+  const sub = grid.sub;
+  const x0 = x * sub;
+  const y0 = y * sub;
+
   if (!opts.color) {
     const cell = grid.cells[y * grid.cols + x];
-    if (cell.alpha < opts.alphaCutoff) return BLANK;
-    const ch = rampChar(cell.lum, { ...opts, ramp: RAMPS.shades });
+    if (cell.alpha < ALPHA_CUTOFF) return BLANK;
+    const ch = rampChar(cell.lum, RAMPS.shades, opts.invert);
     return ch === ' ' ? BLANK : { ch, fg: null, bg: null };
   }
 
-  const sub = grid.sub;
   const half = Math.max(1, Math.floor(sub / 2));
-  const x0 = x * sub;
-  const y0 = y * sub;
   const top = regionMean(grid.detail, x0, y0, sub, half);
   const bottom = regionMean(grid.detail, x0, y0 + half, sub, sub - half);
 
-  const topVisible = top.alpha >= opts.alphaCutoff;
-  const bottomVisible = bottom.alpha >= opts.alphaCutoff;
+  const topVisible = top.alpha >= ALPHA_CUTOFF;
+  const bottomVisible = bottom.alpha >= ALPHA_CUTOFF;
   if (!topVisible && !bottomVisible) return BLANK;
   if (topVisible && !bottomVisible) return { ch: '▀', fg: rgb(top.r, top.g, top.b), bg: null };
   if (!topVisible && bottomVisible) return { ch: '▄', fg: rgb(bottom.r, bottom.g, bottom.b), bg: null };
@@ -155,27 +158,32 @@ function blockCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOption
  */
 const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 1) / 17);
 
+/** Dot bits are numbered 1,2,3,7 down the left column and 4,5,6,8 down the right. */
+const BRAILLE_BITS = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
+
 function brailleCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOptions): RenderCell {
   const cell = grid.cells[y * grid.cols + x];
-  if (cell.alpha < opts.alphaCutoff) return BLANK;
+  if (cell.alpha < ALPHA_CUTOFF) return BLANK;
 
   const sub = grid.sub;
   const x0 = x * sub;
   const y0 = y * sub;
-  // Dot bits are numbered 1,2,3,7 down the left column and 4,5,6,8 down the right.
-  const bits = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
+  const dotW = Math.max(1, Math.floor(sub / 2));
+  const dotH = Math.max(1, Math.floor(sub / 4));
   let pattern = 0;
 
   for (let dx = 0; dx < 2; dx++) {
     for (let dy = 0; dy < 4; dy++) {
-      const sx = x0 + Math.floor((dx * sub) / 2);
-      const sy = y0 + Math.floor((dy * sub) / 4);
-      const w = Math.max(1, Math.floor(sub / 2));
-      const h = Math.max(1, Math.floor(sub / 4));
-      const region = regionMean(grid.detail, sx, sy, w, h);
-      if (region.alpha < opts.alphaCutoff) continue;
+      const region = regionMean(
+        grid.detail,
+        x0 + Math.floor((dx * sub) / 2),
+        y0 + Math.floor((dy * sub) / 4),
+        dotW,
+        dotH,
+      );
+      if (region.alpha < ALPHA_CUTOFF) continue;
       const level = opts.invert ? 1 - region.lum : region.lum;
-      if (level > BAYER4[(dy % 4) * 4 + ((x * 2 + dx) % 4)]) pattern |= bits[dx * 4 + dy];
+      if (level > BAYER4[dy * 4 + ((x * 2 + dx) % 4)]) pattern |= BRAILLE_BITS[dx * 4 + dy];
     }
   }
 
@@ -185,39 +193,6 @@ function brailleCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOpti
     fg: opts.color ? rgb(cell.r, cell.g, cell.b) : null,
     bg: null,
   };
-}
-
-interface RegionMean {
-  r: number;
-  g: number;
-  b: number;
-  alpha: number;
-  lum: number;
-}
-
-function regionMean(detail: Raster, x0: number, y0: number, w: number, h: number): RegionMean {
-  let sr = 0;
-  let sg = 0;
-  let sb = 0;
-  let sa = 0;
-  let n = 0;
-  for (let y = y0; y < y0 + h && y < detail.height; y++) {
-    for (let x = x0; x < x0 + w && x < detail.width; x++) {
-      const p = (y * detail.width + x) * 4;
-      const a = detail.data[p + 3] / 255;
-      sr += detail.data[p] * a;
-      sg += detail.data[p + 1] * a;
-      sb += detail.data[p + 2] * a;
-      sa += a;
-      n++;
-    }
-  }
-  if (n === 0) return { r: 0, g: 0, b: 0, alpha: 0, lum: 0 };
-  const weight = sa > 0 ? sa : 1;
-  const r = sr / weight;
-  const g = sg / weight;
-  const b = sb / weight;
-  return { r, g, b, alpha: sa / n, lum: (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 };
 }
 
 function rgb(r: number, g: number, b: number): RGB {

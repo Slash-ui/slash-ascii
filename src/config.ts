@@ -1,6 +1,6 @@
 import { cosmiconfig } from 'cosmiconfig';
 import type { Charset } from './pipeline/charmap.js';
-import type { Format } from './pipeline/run.js';
+import type { Format } from './options.js';
 import type { ModelId } from './models/registry.js';
 
 export type ColorSetting = 'auto' | 'true' | '256' | 'mono';

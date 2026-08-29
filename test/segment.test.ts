@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Raster } from '../src/pipeline/decode.js';
+import type { Raster } from '../src/raster.js';
 import { convert } from '../src/pipeline/run.js';
 import { fixture } from './helpers.js';
 

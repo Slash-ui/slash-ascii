@@ -1,11 +1,11 @@
 import type { Frame } from '../pipeline/charmap.js';
+import { renderAnsi } from './ansi.js';
 
-/** Characters only. Colour is dropped rather than encoded. */
+/**
+ * Plain text is the monochrome ANSI path: same characters, same trailing-blank
+ * handling, no escape sequences. Kept as its own name so the format list and the
+ * renderer list stay one-to-one.
+ */
 export function renderText(frame: Frame): string {
-  const lines: string[] = [];
-  for (let y = 0; y < frame.rows; y++) {
-    const row = frame.cells.slice(y * frame.cols, (y + 1) * frame.cols);
-    lines.push(row.map((cell) => cell.ch).join('').replace(/\s+$/, ''));
-  }
-  return lines.join('\n') + '\n';
+  return renderAnsi(frame, 'mono');
 }

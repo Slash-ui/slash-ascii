@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { IntegrityError } from '../src/errors.js';
 import { MODELS } from '../src/models/registry.js';
 import { inspect, loadModel, removeModel, resolveModelDir } from '../src/models/cache.js';
@@ -12,24 +12,13 @@ const payload = Buffer.from('12345678');
 const realSha = 'ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f';
 
 describe('model directory', () => {
-  const original = process.env.SLASH_ASCII_MODEL_DIR;
-
-  afterEach(() => {
-    if (original === undefined) delete process.env.SLASH_ASCII_MODEL_DIR;
-    else process.env.SLASH_ASCII_MODEL_DIR = original;
+  it('takes the override when there is one', () => {
+    expect(resolveModelDir('/from/flag')).toBe('/from/flag');
   });
 
-  it('prefers the flag, then the environment, then the cache directory', () => {
-    process.env.SLASH_ASCII_MODEL_DIR = '/from/env';
-    expect(resolveModelDir('/from/flag')).toBe('/from/flag');
-    expect(resolveModelDir()).toBe('/from/env');
-
-    delete process.env.SLASH_ASCII_MODEL_DIR;
+  it('otherwise lands in the per-OS cache directory', () => {
     const fallback = resolveModelDir();
-    expect(fallback).toMatch(/slash-ascii/);
-    expect(fallback.endsWith(join('slash-ascii', 'models')) || fallback.includes('slash-ascii')).toBe(
-      true,
-    );
+    expect(fallback.endsWith(join('slash-ascii', 'models'))).toBe(true);
     // env-paths appends "-nodejs" unless told otherwise, which would be an odd
     // path to document in a README.
     expect(fallback).not.toContain('nodejs');

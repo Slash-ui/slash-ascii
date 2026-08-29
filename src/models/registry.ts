@@ -62,7 +62,7 @@ export function getModel(id: string): ModelSpec {
   return MODELS[id];
 }
 
-export function isModelId(id: string): id is ModelId {
+function isModelId(id: string): id is ModelId {
   return Object.hasOwn(MODELS, id);
 }
 

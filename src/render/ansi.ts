@@ -1,4 +1,6 @@
-import type { Frame, RGB, RenderCell } from '../pipeline/charmap.js';
+import type { Frame, RGB } from '../pipeline/charmap.js';
+import type { Run } from './runs.js';
+import { rowRuns } from './runs.js';
 
 export type ColorMode = 'true' | '256' | 'mono';
 
@@ -8,27 +10,31 @@ const DEFAULT_BG = '\x1b[49m';
 export function renderAnsi(frame: Frame, mode: ColorMode): string {
   const lines: string[] = [];
   for (let y = 0; y < frame.rows; y++) {
-    const row = frame.cells.slice(y * frame.cols, (y + 1) * frame.cols);
-    lines.push(mode === 'mono' ? monoLine(row) : colorLine(row, mode));
+    const runs = visibleRuns(frame, y);
+    lines.push(mode === 'mono' ? runs.map((run) => run.text).join('') : colorLine(runs, mode));
   }
   return lines.join('\n') + '\n';
 }
 
-function monoLine(row: RenderCell[]): string {
-  return trimBlanks(row)
-    .map((cell) => cell.ch)
-    .join('');
+/** Trailing blanks paint nothing, so they are dropped rather than padded out. */
+function visibleRuns(frame: Frame, y: number): Run[] {
+  const runs = rowRuns(frame, y);
+  while (runs.length > 0 && runs[runs.length - 1].blank) runs.pop();
+  const last = runs[runs.length - 1];
+  if (last && last.bg === null) last.text = last.text.replace(/ +$/, '');
+  return runs;
 }
 
-function colorLine(row: RenderCell[], mode: ColorMode): string {
+function colorLine(runs: Run[], mode: ColorMode): string {
   let out = '';
   let fg: string | null = null;
   let bg: string | null = null;
   let dirty = false;
 
-  for (const cell of trimBlanks(row)) {
-    const wantFg = cell.fg ? fgCode(cell.fg, mode) : null;
-    const wantBg = cell.bg ? bgCode(cell.bg, mode) : null;
+  for (const run of runs) {
+    if (run.text === '') continue;
+    const wantFg = run.fg ? fgCode(run.fg, mode) : null;
+    const wantBg = run.bg ? bgCode(run.bg, mode) : null;
     if (wantFg && wantFg !== fg) {
       out += wantFg;
       fg = wantFg;
@@ -40,18 +46,12 @@ function colorLine(row: RenderCell[], mode: ColorMode): string {
       bg = wantBg;
       dirty = true;
     }
-    out += cell.ch;
+    out += run.text;
   }
 
   // Reset unconditionally once anything was coloured: a pipe truncated mid-line
   // must not leave the terminal painted.
   return dirty ? out + RESET : out;
-}
-
-function trimBlanks(row: RenderCell[]): RenderCell[] {
-  let end = row.length;
-  while (end > 0 && row[end - 1].ch === ' ' && !row[end - 1].bg) end--;
-  return row.slice(0, end);
 }
 
 function fgCode(color: RGB, mode: ColorMode): string {
@@ -72,16 +72,16 @@ const CUBE = [0, 95, 135, 175, 215, 255];
  * checking against both.
  */
 export function to256(r: number, g: number, b: number): number {
-  const cube = [r, g, b].map(nearestCubeIndex);
-  const cubeColor: [number, number, number] = [CUBE[cube[0]], CUBE[cube[1]], CUBE[cube[2]]];
-  const cubeIndex = 16 + 36 * cube[0] + 6 * cube[1] + cube[2];
+  const ri = nearestCubeIndex(r);
+  const gi = nearestCubeIndex(g);
+  const bi = nearestCubeIndex(b);
+  const cubeDistance = distance(r, g, b, CUBE[ri], CUBE[gi], CUBE[bi]);
 
   const grey = Math.max(0, Math.min(23, Math.round(((r + g + b) / 3 - 8) / 10)));
-  const greyLevel = 8 + 10 * grey;
+  const level = 8 + 10 * grey;
+  const greyDistance = distance(r, g, b, level, level, level);
 
-  const cubeDist = distance([r, g, b], cubeColor);
-  const greyDist = distance([r, g, b], [greyLevel, greyLevel, greyLevel]);
-  return greyDist < cubeDist ? 232 + grey : cubeIndex;
+  return greyDistance < cubeDistance ? 232 + grey : 16 + 36 * ri + 6 * gi + bi;
 }
 
 function nearestCubeIndex(v: number): number {
@@ -92,6 +92,6 @@ function nearestCubeIndex(v: number): number {
   return best;
 }
 
-function distance(a: [number, number, number], b: [number, number, number]): number {
-  return (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+function distance(r: number, g: number, b: number, r2: number, g2: number, b2: number): number {
+  return (r - r2) ** 2 + (g - g2) ** 2 + (b - b2) ** 2;
 }

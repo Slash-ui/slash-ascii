@@ -5,23 +5,22 @@ import { Command, InvalidArgumentError } from 'commander';
 import supportsColor from 'supports-color';
 import type { ColorMode } from './render/ansi.js';
 import type { ColorSetting, FileConfig } from './config.js';
+import type { ConvertDeps, ConvertOptions, Format } from './options.js';
 import type { ConsentEnv } from './models/consent.js';
-import type { ConvertDeps, ConvertOptions, Format } from './pipeline/run.js';
 import type { ModelSpec } from './models/registry.js';
 import type { Status } from './models/cache.js';
-import type { TransferOptions } from './models/download.js';
+import { CONVERT_DEFAULTS } from './options.js';
 import { CliError, InputError } from './errors.js';
-import { convert } from './pipeline/run.js';
 import { createSegmenter } from './segment/infer.js';
-import { ensureModel } from './models/ensure.js';
 import { downloadModel, installFromFile } from './models/download.js';
+import { ensureModel } from './models/ensure.js';
 import { formatBytes, getModel, MODEL_IDS, MODELS } from './models/registry.js';
 import { inspect, modelPath, removeModel, resolveModelDir, tildify } from './models/cache.js';
 import { loadConfig } from './config.js';
 import { loadRuntime } from './segment/runtime.js';
 import { progressBar } from './progress.js';
-import { readInput } from './pipeline/decode.js';
 import { ttyPrompt } from './models/consent.js';
+import type { TransferOptions } from './models/download.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
@@ -29,6 +28,9 @@ const { version } = require('../package.json') as { version: string };
 const CHARSETS = ['ascii', 'blocks', 'braille'] as const;
 const FORMATS = ['ansi', 'txt', 'html', 'svg'] as const;
 const COLORS = ['auto', 'true', '256', 'mono'] as const;
+
+/** Everything the config file may hold, plus the flags that only exist on the command line. */
+type Settings = FileConfig & { output?: string; yes?: boolean; from?: string };
 
 function buildProgram(): Command {
   const program = new Command();
@@ -64,6 +66,13 @@ function buildProgram(): Command {
 
 async function runConvert(source: string, _options: unknown, command: Command): Promise<void> {
   const settings = await settingsFor(command);
+
+  // The image stack is a good fraction of startup, and the model subcommands
+  // never touch it, so it is pulled in only once there is an image to convert.
+  const [{ convert }, { readInput }] = await Promise.all([
+    import('./pipeline/run.js'),
+    import('./pipeline/decode.js'),
+  ]);
   const input = await readInput(source);
 
   const options: Partial<ConvertOptions> = {
@@ -79,23 +88,17 @@ async function runConvert(source: string, _options: unknown, command: Command): 
     format: settings.format && oneOf(settings.format, FORMATS, 'format'),
     terminalCols: process.stdout.columns,
   };
-  const format = options.format ?? 'ansi';
   options.color = resolveColor(
     settings.color && oneOf(settings.color, COLORS, 'color'),
-    format,
+    options.format ?? CONVERT_DEFAULTS.format,
     Boolean(settings.output),
   );
 
-  const deps: ConvertDeps = { warn: (message) => warn(message) };
+  const deps: ConvertDeps = { warn };
   if (settings.removeBg) {
     const spec = getModel(settings.model ?? 'lite');
     const model = await withProgress(`downloading ${spec.filename}`, (transfer) =>
-      ensureModel({
-        spec,
-        dir: resolveModelDir(settings.modelDir),
-        consent: consentEnv(settings),
-        transfer,
-      }),
+      ensureModel({ spec, dir: modelDir(settings), consent: consentEnv(settings), transfer }),
     );
     if (!model) {
       // Declining is a normal answer, so this is a clean exit, not a failure.
@@ -125,19 +128,19 @@ function buildModelCommand(): Command {
     .option('--model-dir <path>', 'where models are stored')
     .option('--offline', 'never make a network request')
     .action(async (id: string, _options: unknown, command: Command) => {
-      const options = globals<{ from?: string; modelDir?: string; offline?: boolean }>(command);
+      const settings = await settingsFor(command);
       const spec = getModel(id);
-      const dir = resolveModelDir(options.modelDir);
+      const dir = modelDir(settings);
       const status = await inspect(dir, spec);
       if (status.state === 'installed') {
         process.stdout.write(`${spec.filename} is already installed at ${tildify(modelPath(dir, spec))}\n`);
         return;
       }
 
-      if (options.from) {
-        await installFromFile(spec, dir, options.from);
+      if (settings.from) {
+        await installFromFile(spec, dir, settings.from);
       } else {
-        if (options.offline || process.env.SLASH_ASCII_OFFLINE === '1') {
+        if (isOffline(settings)) {
           throw new CliError(
             `offline mode forbids downloading ${spec.filename}; use --from <file> to install a local copy`,
             3,
@@ -158,7 +161,7 @@ function buildModelCommand(): Command {
     .description('show which models are installed')
     .option('--model-dir <path>', 'where models are stored')
     .action(async (_options: unknown, command: Command) => {
-      const dir = resolveModelDir(globals<{ modelDir?: string }>(command).modelDir);
+      const dir = modelDir(await settingsFor(command));
       process.stdout.write(`${tildify(dir)}\n`);
       for (const spec of Object.values(MODELS)) {
         const status = await inspect(dir, spec);
@@ -174,7 +177,7 @@ function buildModelCommand(): Command {
     .option('--model-dir <path>', 'where models are stored')
     .action(async (id: string, _options: unknown, command: Command) => {
       const spec = getModel(id);
-      const dir = resolveModelDir(globals<{ modelDir?: string }>(command).modelDir);
+      const dir = modelDir(await settingsFor(command));
       const removed = await removeModel(dir, spec);
       process.stdout.write(
         removed ? `removed ${tildify(modelPath(dir, spec))}\n` : `${spec.filename} was not installed\n`,
@@ -187,30 +190,19 @@ function buildModelCommand(): Command {
     .option('--model-dir <path>', 'where models are stored')
     .action(async (id: string, _options: unknown, command: Command) => {
       const spec = getModel(id);
-      const dir = resolveModelDir(globals<{ modelDir?: string }>(command).modelDir);
-      const status = await inspect(dir, spec);
-      process.stdout.write(describe(spec, dir, status));
+      const dir = modelDir(await settingsFor(command));
+      process.stdout.write(describe(spec, dir, await inspect(dir, spec)));
     });
 
   model
     .command('path')
     .description('print the directory models are stored in')
     .option('--model-dir <path>', 'where models are stored')
-    .action((_options: unknown, command: Command) => {
-      process.stdout.write(resolveModelDir(globals<{ modelDir?: string }>(command).modelDir) + '\n');
+    .action(async (_options: unknown, command: Command) => {
+      process.stdout.write(modelDir(await settingsFor(command)) + '\n');
     });
 
   return model;
-}
-
-/**
- * Options declared on the root program are parsed wherever they appear, so
- * `model path --model-dir X` is captured by the root rather than by the
- * subcommand that declared the same flag. Merging with the ancestors is what
- * makes both spellings reach the same place.
- */
-function globals<T>(command: Command): T {
-  return command.optsWithGlobals() as T;
 }
 
 function describe(spec: ModelSpec, dir: string, status: Status): string {
@@ -237,28 +229,45 @@ function statusLabel(status: Status, detailed: boolean): string {
   return 'not installed';
 }
 
-async function settingsFor(command: Command): Promise<FileConfig & { output?: string; yes?: boolean }> {
-  return { ...(await loadConfig()), ...overrides(command) };
+/**
+ * Flags beat the config file, which beats the defaults. Resolved the same way
+ * for every command, so `model install` honours a configured model directory
+ * and offline setting exactly as a conversion does.
+ */
+async function settingsFor(command: Command): Promise<Settings> {
+  return { ...(await loadConfig()), ...typedFlags(command) };
 }
 
 /**
  * Only values the user actually typed, so a config file is not overridden by
- * commander's own defaults for flags nobody passed.
+ * commander's own defaults for flags nobody passed. Ancestors are included
+ * because an option declared on the root program is parsed wherever it appears,
+ * even after a subcommand name.
  */
-function overrides(command: Command): Record<string, unknown> {
-  const values = command.opts<Record<string, unknown>>();
+function typedFlags(command: Command): Record<string, unknown> {
   const out: Record<string, unknown> = {};
-  for (const key of Object.keys(values)) {
-    if (command.getOptionValueSource(key) === 'cli') out[key] = values[key];
+  for (let node: Command | null = command; node; node = node.parent) {
+    const values = node.opts<Record<string, unknown>>();
+    for (const key of Object.keys(values)) {
+      if (!(key in out) && node.getOptionValueSource(key) === 'cli') out[key] = values[key];
+    }
   }
   return out;
 }
 
-function consentEnv(settings: FileConfig & { yes?: boolean }): ConsentEnv {
+function modelDir(settings: Settings): string {
+  return resolveModelDir(settings.modelDir ?? process.env.SLASH_ASCII_MODEL_DIR);
+}
+
+function isOffline(settings: Settings): boolean {
+  return Boolean(settings.offline) || process.env.SLASH_ASCII_OFFLINE === '1';
+}
+
+function consentEnv(settings: Settings): ConsentEnv {
   return {
     interactive: Boolean(process.stdin.isTTY && process.stderr.isTTY),
     assumeYes: Boolean(settings.yes) || process.env.SLASH_ASCII_ASSUME_YES === '1',
-    offline: Boolean(settings.offline) || process.env.SLASH_ASCII_OFFLINE === '1',
+    offline: isOffline(settings),
     consented: settings.consentedModels ?? [],
     prompt: ttyPrompt(),
     write: (text) => process.stderr.write(text),
@@ -281,11 +290,14 @@ async function withProgress<T>(label: string, run: (options: TransferOptions) =>
   }
 }
 
+/**
+ * Answers what the destination can display. Whether a format can carry colour at
+ * all is the renderer's business and is settled inside `convert`.
+ */
 function resolveColor(setting: ColorSetting | undefined, format: Format, toFile: boolean): ColorMode {
-  if (format === 'txt') return 'mono';
   if (setting && setting !== 'auto') return setting;
-  // html and svg carry colour in the document itself; there is no terminal to ask.
-  if (format === 'html' || format === 'svg') return 'true';
+  // Only ansi is aimed at a terminal; the document formats carry their own colour.
+  if (format !== 'ansi') return 'true';
   if (toFile) return 'mono';
   const level = supportsColor.stdout ? supportsColor.stdout.level : 0;
   if (level >= 3) return 'true';

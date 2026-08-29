@@ -6,6 +6,7 @@ import { renderText } from '../src/render/txt.js';
 const frame = (): Frame => ({
   cols: 4,
   rows: 1,
+  charAspect: 0.5,
   cells: [
     { ch: '@', fg: [255, 0, 0], bg: null },
     { ch: '#', fg: [255, 0, 0], bg: null },
@@ -32,6 +33,7 @@ describe('ansi output', () => {
     const withBg: Frame = {
       cols: 2,
       rows: 1,
+      charAspect: 0.5,
       cells: [
         { ch: '▀', fg: [10, 10, 10], bg: [20, 20, 20] },
         { ch: '▀', fg: [10, 10, 10], bg: null },

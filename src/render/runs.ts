@@ -1,4 +1,5 @@
 import type { Frame, RGB } from '../pipeline/charmap.js';
+import { isBlank } from '../pipeline/charmap.js';
 
 export interface Run {
   /** Column the run starts at. */
@@ -6,6 +7,8 @@ export interface Run {
   text: string;
   fg: RGB | null;
   bg: RGB | null;
+  /** True when every cell in the run paints nothing. */
+  blank: boolean;
 }
 
 const same = (a: RGB | null, b: RGB | null): boolean =>
@@ -19,18 +22,19 @@ export function rowRuns(frame: Frame, y: number): Run[] {
     const last = runs[runs.length - 1];
     if (last && same(last.fg, cell.fg) && same(last.bg, cell.bg)) {
       last.text += cell.ch;
+      last.blank &&= isBlank(cell);
     } else {
-      runs.push({ start: x, text: cell.ch, fg: cell.fg, bg: cell.bg });
+      runs.push({ start: x, text: cell.ch, fg: cell.fg, bg: cell.bg, blank: isBlank(cell) });
     }
   }
   return runs;
 }
 
-/** A run of blanks with no background paints nothing and can be dropped. */
-export function isInvisible(run: Run): boolean {
-  return run.bg === null && run.text.trim() === '';
-}
-
 export function hex(color: RGB): string {
   return '#' + color.map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+/** Shared by the html and svg renderers, whose escaping rules are the same. */
+export function escapeMarkup(text: string): string {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

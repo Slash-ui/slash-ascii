@@ -14,6 +14,8 @@ export function progressBar(label: string, stream: NodeJS.WriteStream): Bar | nu
       if (now - last < 80 && received !== total) return;
       last = now;
       const width = Math.max(10, Math.min(40, (stream.columns ?? 80) - label.length - 24));
+      // Fixed unit rather than formatBytes: the bar should not jitter sideways as
+      // the transfer crosses from kB into MB.
       const megabytes = (received / 1e6).toFixed(1);
       if (total) {
         const ratio = Math.min(1, received / total);
