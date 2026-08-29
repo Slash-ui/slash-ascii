@@ -30,3 +30,36 @@ jobs:
       - run: npm test
 
       - run: npm run build
+
+  commits:
+    name: commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      # The version bump comes from these messages, so a message that
+      # release-please cannot read is a broken build, not a style nit. Same
+      # script the commit-msg hook runs, so this cannot disagree with it.
+      - name: check each commit
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          status=0
+          for sha in $(git rev-list "$BASE"..HEAD); do
+            git log -1 --format=%B "$sha" > "$RUNNER_TEMP/msg"
+            git log -1 --format='%h %s' "$sha"
+            scripts/check-commit-msg.sh "$RUNNER_TEMP/msg" || status=1
+          done
+          exit $status
+
+      # A squash merge takes its subject from the title, so on a squashing
+      # repo the title is the message release-please ends up reading.
+      - name: check the pull request title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: scripts/check-commit-msg.sh --subject "$TITLE"
