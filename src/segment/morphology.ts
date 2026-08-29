@@ -15,6 +15,12 @@ export function threshold(mask: Float32Array, level: number): Uint8Array {
 /**
  * Square structuring elements are separable, so a horizontal pass followed by a
  * vertical one gives the same result as the 2D window at a fraction of the work.
+ *
+ * Samples outside the image are skipped, which means erosion sees the outside as
+ * foreground. A subject that runs off the edge of the frame therefore keeps its
+ * border pixels instead of being nibbled inwards by every opening. The price is
+ * that closing can grow a shape outwards by the radius once dilation reaches the
+ * edge, which at these radii is a few pixels on a crop boundary.
  */
 function morph(bin: Uint8Array, w: number, h: number, radius: number, dilate: boolean): Uint8Array {
   if (radius < 1) return bin;

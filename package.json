@@ -2,7 +2,14 @@
   "name": "slash-ascii",
   "version": "0.1.0",
   "description": "Convert images to ASCII art in your terminal, with optional background removal",
-  "keywords": ["ascii", "ascii-art", "cli", "terminal", "image", "ansi"],
+  "keywords": [
+    "ascii",
+    "ascii-art",
+    "cli",
+    "terminal",
+    "image",
+    "ansi"
+  ],
   "license": "MIT",
   "author": "Amin Shariati <amin@slashui.com>",
   "repository": {
@@ -12,11 +19,22 @@
   "homepage": "https://github.com/slashui/slash-ascii#readme",
   "bugs": "https://github.com/slashui/slash-ascii/issues",
   "type": "module",
-  "engines": { "node": ">=20" },
-  "bin": { "slash-ascii": "dist/cli.js" },
-  "exports": { ".": "./dist/index.js" },
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "slash-ascii": "dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -37,11 +55,14 @@
     "onnxruntime-node": "^1.20.1"
   },
   "peerDependenciesMeta": {
-    "onnxruntime-node": { "optional": true }
+    "onnxruntime-node": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@types/node": "^22.9.0",
     "tsup": "^8.3.5",
+    "tsx": "^4.23.12",
     "typescript": "^5.6.3",
     "vitest": "^2.1.5"
   }

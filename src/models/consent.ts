@@ -77,12 +77,15 @@ export async function requestConsent(
 }
 
 /** A bare Enter is a no, and so is anything that is not clearly a yes. */
+export function isAffirmative(answer: string): boolean {
+  return /^y(es)?$/i.test(answer.trim());
+}
+
 export function ttyPrompt(): PromptFn {
   return async (question) => {
     const rl = createInterface({ input: process.stdin, output: process.stderr });
     try {
-      const answer = await rl.question(question);
-      return /^y(es)?$/i.test(answer.trim());
+      return isAffirmative(await rl.question(question));
     } finally {
       rl.close();
     }

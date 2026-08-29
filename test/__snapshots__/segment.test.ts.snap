@@ -1,0 +1,13 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`background removal > blanks the background and crops to what is left 1`] = `
+"            ------
+     -==================-
+  ---====================--:
+ ::-======================-::
+ :--======================-::
+  --======================-:
+    ======================
+         -==========-
+"
+`;

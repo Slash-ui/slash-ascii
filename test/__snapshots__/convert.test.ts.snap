@@ -1,0 +1,127 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`rendering > emits html 1`] = `
+"<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>slash-ascii</title>
+<style>
+  body { margin: 0; background: #0b0b0b; }
+  pre.ascii {
+    margin: 0;
+    padding: 1rem;
+    color: #d4d4d4;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 2.0000ch;
+    white-space: pre;
+    overflow-x: auto;
+  }
+</style>
+</head>
+<body>
+<pre class="ascii">                
+  <span style="color:#3d3d44">/</span><span style="color:#adadb0">----</span><span style="color:#4f4f55">\\</span>        
+  <span style="color:#65656a">|</span><span style="color:#fafafa">@@@@</span><span style="color:#838387">|</span>        
+  <span style="color:#65656a">|</span><span style="color:#fafafa">@@@@</span><span style="color:#848488">|</span>       <span style="color:#191921">.</span>
+  <span style="color:#65656a">|</span><span style="color:#fafafa">@@@@</span><span style="color:#848488">|</span><span style="color:#313138">.</span><span style="color:#38383e">:</span>    <span style="color:#323239">.</span><span style="color:#37373e">:</span>
+  <span style="color:#65656a">|</span><span style="color:#fafafa">@@@@</span><span style="color:#828286">|</span>  <span style="color:#38383e">:</span><span style="color:#4a4a50">:</span><span style="color:#434349">:</span><span style="color:#2f2f36">.</span>  
+   <span style="color:#48484e">----</span><span style="color:#1d1d25">.</span>  <span style="color:#323239">.</span><span style="color:#424248">:</span><span style="color:#414147">-</span><span style="color:#38383e">:</span>  
+        <span style="color:#3c3c43">:</span><span style="color:#2f2f36">.</span>    <span style="color:#38383e">:</span><span style="color:#4a4a50">-</span></pre>
+</body>
+</html>
+"
+`;
+
+exports[`rendering > emits svg 1`] = `
+"<svg xmlns="http://www.w3.org/2000/svg" width="153.6" height="153.6" viewBox="0 0 153.6 153.6" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="16" fill="#d4d4d4" xml:space="preserve">
+<rect width="100%" height="100%" fill="#0b0b0b"/>
+<text y="34.4"><tspan x="19.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#3d3d44">/</tspan><tspan x="28.8" textLength="38.4" lengthAdjust="spacingAndGlyphs" fill="#adadb0">----</tspan><tspan x="67.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#4f4f55">\\</tspan></text>
+<text y="53.6"><tspan x="19.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#65656a">|</tspan><tspan x="28.8" textLength="38.4" lengthAdjust="spacingAndGlyphs" fill="#fafafa">@@@@</tspan><tspan x="67.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#838387">|</tspan></text>
+<text y="72.8"><tspan x="19.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#65656a">|</tspan><tspan x="28.8" textLength="38.4" lengthAdjust="spacingAndGlyphs" fill="#fafafa">@@@@</tspan><tspan x="67.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#848488">|</tspan><tspan x="144" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#191921">.</tspan></text>
+<text y="92"><tspan x="19.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#65656a">|</tspan><tspan x="28.8" textLength="38.4" lengthAdjust="spacingAndGlyphs" fill="#fafafa">@@@@</tspan><tspan x="67.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#848488">|</tspan><tspan x="76.8" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#313138">.</tspan><tspan x="86.4" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#38383e">:</tspan><tspan x="134.4" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#323239">.</tspan><tspan x="144" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#37373e">:</tspan></text>
+<text y="111.2"><tspan x="19.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#65656a">|</tspan><tspan x="28.8" textLength="38.4" lengthAdjust="spacingAndGlyphs" fill="#fafafa">@@@@</tspan><tspan x="67.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#828286">|</tspan><tspan x="96" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#38383e">:</tspan><tspan x="105.6" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#4a4a50">:</tspan><tspan x="115.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#434349">:</tspan><tspan x="124.8" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#2f2f36">.</tspan></text>
+<text y="130.4"><tspan x="28.8" textLength="38.4" lengthAdjust="spacingAndGlyphs" fill="#48484e">----</tspan><tspan x="67.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#1d1d25">.</tspan><tspan x="96" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#323239">.</tspan><tspan x="105.6" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#424248">:</tspan><tspan x="115.2" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#414147">-</tspan><tspan x="124.8" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#38383e">:</tspan></text>
+<text y="149.6"><tspan x="76.8" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#3c3c43">:</tspan><tspan x="86.4" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#2f2f36">.</tspan><tspan x="134.4" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#38383e">:</tspan><tspan x="144" textLength="9.6" lengthAdjust="spacingAndGlyphs" fill="#4a4a50">-</tspan></text>
+</svg>
+"
+`;
+
+exports[`rendering > inverts the ramp for light backgrounds 1`] = `
+"%%%%%%%%%%%%########
+###########*********
+***********+++++++++
+++++++++++==========
+==========----------
+---------:::::::::::
+::::::::............
+"
+`;
+
+exports[`rendering > renders a gradient across the whole ramp 1`] = `
+"    ............................::::::::
+................::::::::::::::::::::::::
+::::::::::::::::::::::::::::------------
+:::::::::::::---------------------------
+-------------------------===============
+---------============================+++
+======================++++++++++++++++++
+======++++++++++++++++++++++++++++******
+++++++++++++++++++**********************
++++****************************#########
+****************########################
+###########################%%%%%%%%%%%%%
+############%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+"
+`;
+
+exports[`rendering > renders braille 1`] = `
+"
+
+    ⣿⣿⣿⣿⣿⣿⣿⠄
+    ⣿⣿⣿⣿⣿⣿⣿⠅
+    ⣿⣿⣿⣿⣿⣿⣿⠅
+    ⣿⣿⣿⣿⣿⣿⣿⠅           ⢀
+    ⣿⣿⣿⣿⣿⣿⣿⠅⠑⢄       ⢀⠔⠍
+    ⣿⣿⣿⣿⣿⣿⣿⠅  ⠑⢄   ⢀⠔⠍⠁
+    ⣿⣿⣿⣿⣿⣿⣿⠅    ⠑⢤⣔⠍⠁
+    ⠙⠙⠙⠙⠙⠙⠙⠁   ⢀⠕⠍⠑⢄
+             ⢀⠔⠍⠁   ⠑⢄
+            ⢐⠍⠁       ⠑⢄
+"
+`;
+
+exports[`rendering > renders half blocks with a foreground and a background colour 1`] = `
+"[38;2;69;74;90m[48;2;69;74;90m▀[38;2;66;78;90m[48;2;73;78;90m▀[38;2;72;78;90m[48;2;70;78;90m▀[38;2;73;81;90m[48;2;66;81;90m▀[38;2;67;80;90m[48;2;71;80;90m▀[38;2;67;78;90m[48;2;74;78;90m▀[38;2;74;76;90m[48;2;69;76;90m▀[38;2;72;79;90m[48;2;66;79;90m▀[38;2;67;81;90m[48;2;73;81;90m▀[38;2;68;82;90m[48;2;72;82;90m▀[38;2;75;76;90m[48;2;67;76;90m▀[38;2;72;77;90m[48;2;68;77;90m▀[0m
+[38;2;72;74;90m[48;2;66;74;90m▀[38;2;68;78;90m[48;2;71;78;90m▀[38;2;67;78;90m[48;2;74;78;90m▀[38;2;73;81;90m[48;2;101;86;85m▀[38;2;76;81;90m[48;2;189;88;66m▀[38;2;89;82;87m[48;2;219;90;60m▀▀[38;2;75;81;89m[48;2;193;89;65m▀[38;2;71;81;90m[48;2;111;84;83m▀[38;2;66;82;90m[48;2;73;82;90m▀[38;2;71;76;90m[48;2;71;76;90m▀[38;2;73;77;90m[48;2;67;77;90m▀[0m
+[38;2;72;74;90m[48;2;68;74;90m▀[38;2;72;78;90m[48;2;67;78;90m▀[38;2;87;83;87m[48;2;150;89;74m▀[38;2;208;89;62m[48;2;220;90;60m▀[38;2;220;90;60m▀▀▀▀[38;2;213;90;61m▀[38;2;96;86;85m[48;2;163;90;72m▀[38;2;67;76;90m[48;2;73;76;90m▀[38;2;71;77;90m[48;2;70;77;90m▀[0m
+[38;2;69;74;90m[48;2;72;74;90m▀[38;2;74;78;90m[48;2;67;78;90m▀[38;2;170;89;70m[48;2;160;89;72m▀[38;2;220;90;60m[48;2;220;90;60m▀▀▀▀▀▀[38;2;184;90;68m[48;2;172;90;70m▀[38;2;69;76;90m[48;2;71;76;90m▀[38;2;66;77;90m[48;2;74;77;90m▀[0m
+[38;2;67;74;90m[48;2;71;74;90m▀[38;2;71;78;90m[48;2;71;78;90m▀[38;2;99;85;85m[48;2;69;78;90m▀[38;2;217;90;61m[48;2;126;87;80m▀[38;2;220;90;60m[48;2;211;89;62m▀[48;2;219;90;60m▀▀[48;2;214;89;61m▀[38;2;219;90;60m[48;2;136;85;77m▀[38;2;110;86;83m[48;2;69;82;90m▀[38;2;72;76;90m[48;2;67;76;90m▀[38;2;66;77;90m[48;2;73;77;90m▀[0m
+[38;2;70;74;90m[48;2;66;74;90m▀[38;2;67;78;90m[48;2;74;78;90m▀[38;2;71;78;90m[48;2;70;78;90m▀[38;2;73;81;90m[48;2;67;81;90m▀[38;2;85;82;88m[48;2;72;80;90m▀[38;2;118;84;81m[48;2;72;78;90m▀[38;2;115;85;81m[48;2;66;76;90m▀[38;2;89;82;87m[48;2;66;79;90m▀[38;2;69;82;90m[48;2;73;81;90m▀[48;2;72;82;90m▀[38;2;73;76;90m[48;2;67;76;90m▀[38;2;69;77;90m[48;2;68;77;90m▀[0m
+"
+`;
+
+exports[`rendering > renders the ramp and the edge characters 1`] = `
+"
+
+
+      /-----------\\
+      |@@@@@@@@@@@|
+      |@@@@@@@@@@@|
+      |@@@@@@@@@@@|
+      |@@@@@@@@@@@|
+      |@@@@@@@@@@@|
+      |@@@@@@@@@@@|                    /
+      |@@@@@@@@@@@| -\\\\              ///
+      |@@@@@@@@@@@|  \\\\\\\\          ////
+      |@@@@@@@@@@@|    \\\\\\\\      ////
+      |@@@@@@@@@@@|      \\\\\\\\  ////
+      |@@@@@@@@@@@|        \\\\-///
+      \\-----------/        ///\\\\\\
+                         ////  \\\\\\\\
+                       ////      \\\\\\\\
+                     ////          \\\\\\\\
+                    ///              \\\\\\
+"
+`;
