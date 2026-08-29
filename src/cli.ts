@@ -163,7 +163,7 @@ function buildModelCommand(): Command {
       for (const spec of Object.values(MODELS)) {
         const status = await inspect(dir, spec);
         process.stdout.write(
-          `  ${spec.id.padEnd(5)} ${spec.filename.padEnd(12)} ${formatBytes(spec.bytes).padStart(9)}  ${statusLabel(status)}\n`,
+          `  ${spec.id.padEnd(5)} ${spec.filename.padEnd(12)} ${formatBytes(spec.bytes).padStart(9)}  ${statusLabel(status, false)}\n`,
         );
       }
     });
@@ -225,14 +225,15 @@ function describe(spec: ModelSpec, dir: string, status: Status): string {
     `  source    ${spec.sourceName}`,
     `  url       ${spec.url}`,
     `  path      ${tildify(modelPath(dir, spec))}`,
-    `  status    ${statusLabel(status)}`,
+    `  status    ${statusLabel(status, true)}`,
     '',
   ].join('\n');
 }
 
-function statusLabel(status: Status): string {
+/** The listing stays one line per model; the reason belongs in `model info`. */
+function statusLabel(status: Status, detailed: boolean): string {
   if (status.state === 'installed') return 'installed';
-  if (status.state === 'corrupt') return `corrupt (${status.detail})`;
+  if (status.state === 'corrupt') return detailed ? `corrupt (${status.detail})` : 'corrupt';
   return 'not installed';
 }
 
