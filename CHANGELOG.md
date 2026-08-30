@@ -9,6 +9,28 @@ commit messages on `main`, so the way to add an entry here is to write the
 commit that earns it. There is no unreleased section: the pending changes are
 whatever the open release pull request is proposing.
 
+## [0.3.0](https://github.com/Slash-ui/slash-ascii/compare/v0.2.0...v0.3.0) (2026-08-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* resolveOptions, LINE_ART_PRESET, ALPHA_CUTOFF and LINE_ART_ALPHA_CUTOFF are no longer exported from the package entry point; import them from the source paths if you need them. ConvertOptions no longer carries lineArt, which now lives on ConvertInput, so CONVERT_DEFAULTS.lineArt is gone. resolveOptions also takes a defaults object rather than a boolean as its second argument. convert(input, { lineArt: true }) is unchanged.
+
+### Fixed
+
+* **pipeline:** render a vector for both axes of the grid ([f157e32](https://github.com/Slash-ui/slash-ascii/commit/f157e3255fa3d99f99f42f9b4c5688a521d84de8))
+
+
+### Changed
+
+* settle the vector decision inside decode ([721a629](https://github.com/Slash-ui/slash-ascii/commit/721a629e3d3c42a0abafbaa0d0fb5921141c90f5))
+
+
+### Documentation
+
+* rewrite the readme for a first-time reader ([511a959](https://github.com/Slash-ui/slash-ascii/commit/511a959ba638f92d196047f473ff9dc21d3e648d))
+* show one photograph drawn all three ways ([b76f59c](https://github.com/Slash-ui/slash-ascii/commit/b76f59c90c12105bb14176d3a87d36ed689b759a))
+
 ## [0.2.0](https://github.com/Slash-ui/slash-ascii/compare/v0.1.2...v0.2.0) (2026-08-30)
 
 
