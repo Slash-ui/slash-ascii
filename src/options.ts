@@ -1,7 +1,7 @@
 import type { Charset } from './pipeline/charmap.js';
 import type { ColorMode } from './render/ansi.js';
 import type { Raster } from './raster.js';
-import { RAMPS } from './pipeline/charmap.js';
+import { ALPHA_CUTOFF, LINE_ART_ALPHA_CUTOFF, RAMPS } from './pipeline/charmap.js';
 
 export type Format = 'ansi' | 'txt' | 'html' | 'svg';
 
@@ -19,6 +19,13 @@ export interface ConvertOptions {
   /** Mask cutoff, only used when a mask provider is supplied. */
   threshold: number;
   edges: boolean;
+  /** Coverage a cell needs before it paints, 0..1. */
+  alphaCutoff: number;
+  /**
+   * Treat the source as line art: keep hairlines that the ordinary settings
+   * average away. A preset over the options below, not a mode of its own.
+   */
+  lineArt: boolean;
   /** Used when no width is given. */
   terminalCols?: number;
 }
@@ -33,6 +40,20 @@ export const CONVERT_DEFAULTS: ConvertOptions = {
   denoise: true,
   threshold: 0.5,
   edges: true,
+  alphaCutoff: ALPHA_CUTOFF,
+  lineArt: false,
+};
+
+/**
+ * What `lineArt` stands for. Applied over the defaults and under anything the
+ * caller actually asked for, so `--line-art --alpha-cutoff 0.3` is the user's
+ * number and not this one.
+ */
+export const LINE_ART_PRESET: Partial<ConvertOptions> = {
+  // A median filter is a majority vote among neighbours, which a stroke thinner
+  // than the 3x3 window always loses.
+  denoise: false,
+  alphaCutoff: LINE_ART_ALPHA_CUTOFF,
 };
 
 /**
@@ -43,10 +64,10 @@ export const CONVERT_DEFAULTS: ConvertOptions = {
 const VECTOR_PRESET: Partial<ConvertOptions> = { denoise: false };
 
 /**
- * Settles every option for one run. Three layers, each beating the one above
- * it: the defaults, what the source format implies, and whatever the caller
- * actually asked for. Keeping the preset underneath the caller is what makes it
- * a preset rather than a mode.
+ * Settles every option for one run. Four layers, each beating the one above it:
+ * the defaults, what the source format implies, what `lineArt` stands for, and
+ * whatever the caller actually asked for. Keeping the presets underneath the
+ * caller is what makes them presets rather than modes.
  */
 export function resolveOptions(
   options: Partial<ConvertOptions>,
@@ -55,6 +76,7 @@ export function resolveOptions(
   return {
     ...CONVERT_DEFAULTS,
     ...(vector ? VECTOR_PRESET : {}),
+    ...(options.lineArt ? LINE_ART_PRESET : {}),
     ...defined(options),
   };
 }

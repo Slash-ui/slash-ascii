@@ -17,6 +17,8 @@ export interface FileConfig {
   format?: Format;
   denoise?: boolean;
   edges?: boolean;
+  lineArt?: boolean;
+  alphaCutoff?: number;
   threshold?: number;
   removeBg?: boolean;
   model?: ModelId;

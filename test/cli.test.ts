@@ -46,6 +46,29 @@ describe('the command line', () => {
     expect(result.stdout).toContain('@');
   });
 
+  it('keeps hairlines under --line-art', async () => {
+    const ink = (art: string): number => [...art].filter((ch) => ch !== ' ' && ch !== '\n').length;
+    const args = [fixturePath('hairline.svg'), '--width', '40', '--charset', 'blocks', '--format', 'txt'];
+    const plain = await cli(args);
+    const lineArt = await cli([...args, '--line-art']);
+    expect(lineArt.code).toBe(0);
+    expect(ink(lineArt.stdout)).toBeGreaterThan(ink(plain.stdout));
+  });
+
+  it('lets --alpha-cutoff override the preset it comes with', async () => {
+    const ink = (art: string): number => [...art].filter((ch) => ch !== ' ' && ch !== '\n').length;
+    const args = [fixturePath('hairline.svg'), '--width', '40', '--charset', 'blocks', '--format', 'txt'];
+    const preset = await cli([...args, '--line-art']);
+    const strict = await cli([...args, '--line-art', '--alpha-cutoff', '0.5']);
+    expect(ink(strict.stdout)).toBeLessThan(ink(preset.stdout));
+  });
+
+  it('rejects a coverage cutoff outside 0 to 1', async () => {
+    const result = await cli([fixturePath('hairline.svg'), '--alpha-cutoff', '2']);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('between 0 and 1');
+  });
+
   it('rejects an unknown option value with exit 1', async () => {
     const result = await cli([fixturePath('shapes.png'), '--format', 'nope']);
     expect(result.code).toBe(1);

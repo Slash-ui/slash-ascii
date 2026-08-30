@@ -1,7 +1,9 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
+import type { ConvertOptions } from '../src/options.js';
 import { resolveOptions } from '../src/options.js';
 import { convert } from '../src/pipeline/run.js';
+import { ALPHA_CUTOFF, LINE_ART_ALPHA_CUTOFF } from '../src/pipeline/charmap.js';
 import { densityFor, isVector, probe } from '../src/pipeline/decode.js';
 import { fitGrid } from '../src/pipeline/resize.js';
 import { fixture } from './helpers.js';
@@ -133,10 +135,26 @@ describe('resolving options', () => {
     expect(resolveOptions({ denoise: true }, true).denoise).toBe(true);
   });
 
+  it('lowers the coverage cutoff for line art and drops the filter with it', () => {
+    const opts = resolveOptions({ lineArt: true }, false);
+    expect(opts.alphaCutoff).toBe(LINE_ART_ALPHA_CUTOFF);
+    expect(opts.denoise).toBe(false);
+  });
+
+  it('leaves the cutoff alone otherwise', () => {
+    expect(resolveOptions({}, false).alphaCutoff).toBe(ALPHA_CUTOFF);
+  });
+
+  it('is a preset, so an explicit cutoff beats it', () => {
+    expect(resolveOptions({ lineArt: true, alphaCutoff: 0.4 }, true).alphaCutoff).toBe(0.4);
+  });
+
   it('ignores keys that are present but undefined', () => {
     // A CLI builds its options from flags the user did not pass, so every absent
     // flag arrives as an explicit undefined. Those must not erase a preset.
-    expect(resolveOptions({ denoise: undefined } as never, true).denoise).toBe(false);
+    const opts = resolveOptions({ lineArt: true, alphaCutoff: undefined } as never, true);
+    expect(opts.alphaCutoff).toBe(LINE_ART_ALPHA_CUTOFF);
+    expect(opts.denoise).toBe(false);
   });
 });
 
@@ -179,5 +197,60 @@ describe('vector sources', () => {
     expect(await art(await fixture('hairline.svg'), 128)).not.toEqual(
       await art(await nominal(), 128),
     );
+  });
+});
+
+describe('line art', () => {
+  /**
+   * Trailing blanks are trimmed per row, so a raw string index is not a cell.
+   * Padding back out to the column count makes two renderings of one grid
+   * comparable position by position.
+   */
+  const grid = (art: string, cols: number): string[] =>
+    art.split('\n').flatMap((row) => [...row.padEnd(cols)]);
+
+  /** Cells that paint, which is what a hairline either reaches or does not. */
+  const inked = (art: string): number =>
+    [...art].filter((ch) => ch !== ' ' && ch !== '\n').length;
+
+  const hairline = (options: Partial<ConvertOptions>): Promise<string> =>
+    fixture('hairline.svg').then((svg) =>
+      convert(svg, { width: 40, charset: 'blocks', format: 'txt', ...options }),
+    );
+
+  it('keeps strokes that the ordinary coverage cutoff drops', async () => {
+    expect(inked(await hairline({}))).toBeLessThan(inked(await hairline({ lineArt: true })));
+  });
+
+  it('loses some of them again to a median filter', async () => {
+    // The reason the preset turns the filter off: a 3x3 median is a majority
+    // vote among neighbours, and a stroke thinner than the window loses it.
+    const filtered = inked(await hairline({ lineArt: true, denoise: true }));
+    expect(filtered).toBeLessThan(inked(await hairline({ lineArt: true })));
+  });
+
+  it('only ever adds ink, so nothing the default drew goes missing', async () => {
+    const plain = grid(await hairline({}), 40);
+    const loose = grid(await hairline({ lineArt: true }), 40);
+    expect(loose).toHaveLength(plain.length);
+    expect(plain.filter((ch, i) => ch !== ' ' && loose[i] === ' ')).toEqual([]);
+  });
+
+  it('pays for the thin parts with a cell of bleed around the thick ones', async () => {
+    // Worth pinning down rather than leaving to be discovered: a cutoff low
+    // enough to catch a stroke also catches the antialiased rim of a solid
+    // shape, so a silhouette grows by up to a cell. That is the trade.
+    const solid = (art: string): string => art.split('\n').slice(0, 4).join('|');
+    expect(solid(await hairline({ lineArt: true }))).not.toEqual(solid(await hairline({})));
+  });
+
+  it('reaches every charset, not just half blocks', async () => {
+    const svg = await fixture('hairline.svg');
+    for (const charset of ['ascii', 'blocks', 'braille'] as const) {
+      const opts = { width: 40, charset, format: 'txt' } as const;
+      expect(inked(await convert(svg, { ...opts, lineArt: true }))).toBeGreaterThan(
+        inked(await convert(svg, opts)),
+      );
+    }
   });
 });

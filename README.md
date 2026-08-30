@@ -100,6 +100,8 @@ slash-ascii model <install|list|remove|info|path> [id]
 | `--invert` | off | Flip the ramp, for light backgrounds |
 | `--no-edges` | edges on | Use brightness alone, no line characters |
 | `--no-denoise` | on for bitmaps | Skip the median filter |
+| `--line-art` | off | Keep hairlines: no median filter, lower coverage cutoff |
+| `--alpha-cutoff <n>` | `0.5` | Coverage a cell needs before it paints, 0 to 1 |
 | `--remove-bg` | off | Keep only the subject. Needs a model |
 | `--model <tier>` | `lite` | `lite` or `full` |
 | `--threshold <n>` | `0.5` | Mask cutoff, 0 to 1 |
@@ -160,7 +162,42 @@ terminal fonts. If your output looks stretched or squashed, this is the knob:
 slash-ascii photo.jpg --char-aspect 0.45
 ```
 
-## Vector sources
+## Line art and fine detail
+
+A stroke narrower than a character cell is a coverage problem, not a resolution
+problem. A cell paints only once it is at least half covered, so a hairline
+crossing a cell covers perhaps a fifth of it, falls short, and the line arrives
+as speckle or not at all. Logos with hairline rules, dashed outlines, technical
+drawings and wireframes all land here.
+
+`--line-art` is the answer to that: it lowers the coverage cutoff to `0.15` and
+turns off the median filter, which is a majority vote among neighbours that any
+stroke thinner than its 3x3 window loses.
+
+```
+slash-ascii logo.svg --charset blocks --line-art -w 128
+```
+
+It only ever adds ink, never removes it. The cost is that a cutoff low enough to
+catch a stroke also catches the antialiased rim of a solid shape, so silhouettes
+grow by up to a cell. Reach for it when the thin parts matter more than the
+edges are crisp, and tune it with `--alpha-cutoff` if the preset's `0.15`
+overshoots or undershoots — the flag wins over the preset.
+
+There is still a floor. A feature narrower than one cell can be *detected* but
+not *drawn* at its true width, so the width you need is roughly:
+
+```
+columns >= image width in pixels / width of the thinnest stroke in pixels
+```
+
+A 2px rule on a 318px-wide logo wants about 160 columns before it occupies a
+full cell of its own. Below that, `--line-art` keeps the line visible but
+thickens it. If you control the source, the more reliable fix is a separate
+master drawn for the medium, with strokes two or three times their screen
+weight — the same reasoning that gives a favicon its own artwork.
+
+### Vector sources
 
 An SVG is rendered at whatever resolution the grid is about to sample, rather
 than at its nominal size, so a 318 unit wide logo feeding a 128 column grid is
@@ -321,6 +358,7 @@ defaults.
 {
   "charset": "blocks",
   "charAspect": 0.45,
+  "lineArt": true,
   "consentedModels": ["lite"]
 }
 ```

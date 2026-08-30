@@ -50,6 +50,8 @@ function buildProgram(): Command {
     .option('--invert', 'invert the ramp, for light backgrounds')
     .option('--no-edges', 'disable edge-aware character selection')
     .option('--no-denoise', 'skip the median filter')
+    .option('--line-art', 'keep hairlines: no median filter, lower coverage cutoff')
+    .option('--alpha-cutoff <n>', 'coverage a cell needs to paint, 0 to 1 (default: 0.5)', fraction)
     .option('--remove-bg', 'keep only the subject (needs a segmentation model)')
     .option('--model <tier>', `one of ${MODEL_IDS.join(', ')} (default: lite)`)
     .option('--threshold <n>', 'mask cutoff between 0 and 1 (default: 0.5)', number)
@@ -84,6 +86,8 @@ async function runConvert(source: string, _options: unknown, command: Command): 
     invert: settings.invert,
     denoise: settings.denoise,
     edges: settings.edges,
+    lineArt: settings.lineArt,
+    alphaCutoff: settings.alphaCutoff,
     threshold: settings.threshold,
     format: settings.format && oneOf(settings.format, FORMATS, 'format'),
     terminalCols: process.stdout.columns,
@@ -316,6 +320,15 @@ function integer(raw: string): number {
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 1) {
     throw new InvalidArgumentError('expected a positive whole number');
+  }
+  return value;
+}
+
+/** A share of something, so both ends are meaningful and zero is allowed. */
+function fraction(raw: string): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 1) {
+    throw new InvalidArgumentError('expected a number between 0 and 1');
   }
   return value;
 }

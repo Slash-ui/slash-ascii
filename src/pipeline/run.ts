@@ -67,6 +67,7 @@ export async function convert(
     invert: opts.invert,
     color: color !== 'mono',
     edges,
+    alphaCutoff: opts.alphaCutoff,
   });
 
   switch (opts.format) {

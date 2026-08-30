@@ -47,8 +47,19 @@ const EDGE_QUANTILE = 0.85;
 /** How much the gradients in a cell must agree before its angle is trusted. */
 const EDGE_COHERENCE = 0.5;
 
-/** Cells with less coverage than this become blanks. */
-const ALPHA_CUTOFF = 0.5;
+/**
+ * Coverage a cell needs before it paints anything, for ordinary artwork. A
+ * shape either fills most of a cell or it does not, so half is a fair bar.
+ */
+export const ALPHA_CUTOFF = 0.5;
+
+/**
+ * The bar for line art. A one pixel stroke crossing a cell covers a fraction of
+ * it, so the ordinary cutoff drops whichever cells the stroke happens to clip
+ * and the line arrives as speckle. Roughly one sub-sample's worth of coverage
+ * is enough to say a stroke passed through.
+ */
+export const LINE_ART_ALPHA_CUTOFF = 0.15;
 
 const BLANK: RenderCell = { ch: ' ', fg: null, bg: null };
 
@@ -68,6 +79,8 @@ export interface CharmapOptions {
   color: boolean;
   /** Edge-aware character selection. Requires a grid analysed with gradients. */
   edges: boolean;
+  /** Coverage below which a cell paints nothing, 0..1. */
+  alphaCutoff: number;
 }
 
 export function mapGrid(grid: AnalysedGrid, opts: CharmapOptions): Frame {
@@ -99,7 +112,7 @@ function asciiCell(
   cutoff: number,
 ): RenderCell {
   const cell = grid.cells[index];
-  if (cell.alpha < ALPHA_CUTOFF) return BLANK;
+  if (cell.alpha < opts.alphaCutoff) return BLANK;
 
   const isEdge = cell.edge >= cutoff && cell.coherence >= EDGE_COHERENCE;
   const ch = isEdge ? edgeChar(cell.angle) : rampChar(cell.lum, opts.ramp, opts.invert);
@@ -129,7 +142,7 @@ function blockCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOption
 
   if (!opts.color) {
     const cell = grid.cells[y * grid.cols + x];
-    if (cell.alpha < ALPHA_CUTOFF) return BLANK;
+    if (cell.alpha < opts.alphaCutoff) return BLANK;
     const ch = rampChar(cell.lum, RAMPS.shades, opts.invert);
     return ch === ' ' ? BLANK : { ch, fg: null, bg: null };
   }
@@ -138,8 +151,8 @@ function blockCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOption
   const top = regionMean(grid.detail, x0, y0, sub, half);
   const bottom = regionMean(grid.detail, x0, y0 + half, sub, sub - half);
 
-  const topVisible = top.alpha >= ALPHA_CUTOFF;
-  const bottomVisible = bottom.alpha >= ALPHA_CUTOFF;
+  const topVisible = top.alpha >= opts.alphaCutoff;
+  const bottomVisible = bottom.alpha >= opts.alphaCutoff;
   if (!topVisible && !bottomVisible) return BLANK;
   if (topVisible && !bottomVisible) return { ch: '▀', fg: rgb(top.r, top.g, top.b), bg: null };
   if (!topVisible && bottomVisible) return { ch: '▄', fg: rgb(bottom.r, bottom.g, bottom.b), bg: null };
@@ -163,7 +176,7 @@ const BRAILLE_BITS = [0x01, 0x02, 0x04, 0x40, 0x08, 0x10, 0x20, 0x80];
 
 function brailleCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOptions): RenderCell {
   const cell = grid.cells[y * grid.cols + x];
-  if (cell.alpha < ALPHA_CUTOFF) return BLANK;
+  if (cell.alpha < opts.alphaCutoff) return BLANK;
 
   const sub = grid.sub;
   const x0 = x * sub;
@@ -181,7 +194,7 @@ function brailleCell(grid: AnalysedGrid, x: number, y: number, opts: CharmapOpti
         dotW,
         dotH,
       );
-      if (region.alpha < ALPHA_CUTOFF) continue;
+      if (region.alpha < opts.alphaCutoff) continue;
       const level = opts.invert ? 1 - region.lum : region.lum;
       if (level > BAYER4[dy * 4 + ((x * 2 + dx) % 4)]) pattern |= BRAILLE_BITS[dx * 4 + dy];
     }
