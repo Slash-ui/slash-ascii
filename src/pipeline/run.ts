@@ -1,11 +1,12 @@
+import type sharp from 'sharp';
 import type { ConvertDeps, ConvertOptions } from '../options.js';
-import type { Size } from '../raster.js';
-import { CONVERT_DEFAULTS } from '../options.js';
+import type { Grid } from './resize.js';
+import { resolveOptions } from '../options.js';
 import { analyze } from './analyze.js';
 import { cutout } from '../segment/cutout.js';
 import { denoise } from './denoise.js';
 import { FALLBACK_COLS, fitGrid, limit, sampleGrid } from './resize.js';
-import { fromRaster, open, orientedSize, rasterize } from './decode.js';
+import { densityFor, fromRaster, isVector, open, probe, rasterize } from './decode.js';
 import { mapGrid } from './charmap.js';
 import { renderAnsi } from '../render/ansi.js';
 import { renderHtml } from '../render/html.js';
@@ -23,7 +24,11 @@ export async function convert(
   options: Partial<ConvertOptions> = {},
   deps: ConvertDeps = {},
 ): Promise<string> {
-  const opts = { ...CONVERT_DEFAULTS, ...defined(options) };
+  // Read the header first: whether the source is a vector decides some of the
+  // defaults, and its nominal size decides how large to render it.
+  const probed = await probe(input);
+  const vector = isVector(probed);
+  const opts = resolveOptions(options, vector);
   // Plain text has no way to carry colour. Deciding that here rather than in the
   // CLI is what keeps a library caller and the command line on the same output.
   const color = opts.format === 'txt' ? 'mono' : opts.color;
@@ -31,27 +36,29 @@ export async function convert(
   // cost of analysis.
   const edges = opts.edges && opts.charset === 'ascii';
 
-  let image = open(input);
-  if (opts.denoise) image = denoise(image);
-  let size: Size;
+  /** Renders the source at whatever width the next stage is about to sample. */
+  const load = (targetWidth: number): sharp.Sharp => {
+    const img = open(input, vector ? densityFor(probed.size.width, targetWidth) : undefined);
+    return opts.denoise ? denoise(img) : img;
+  };
+
+  let image: sharp.Sharp;
+  let grid: Grid;
 
   if (deps.mask) {
-    const working = await rasterize(limit(image, Math.max(SEGMENT_MAX_DIM, estimateCols(opts) * SUB)));
+    // The grid cannot be fitted until the subject has been cut out, so the
+    // render width is the one the segmentation stage works at.
+    const target = Math.max(SEGMENT_MAX_DIM, estimateCols(opts) * SUB);
+    const working = await rasterize(limit(load(target), target));
     const subject = cutout(working, await deps.mask(working), opts.threshold);
     if (!subject) deps.warn?.('no subject found in the mask; converting the whole image');
     const chosen = subject ?? working;
     image = fromRaster(chosen);
-    size = { width: chosen.width, height: chosen.height };
+    grid = fit(opts, { width: chosen.width, height: chosen.height });
   } else {
-    size = await orientedSize(input);
+    grid = fit(opts, probed.size);
+    image = load(grid.cols * SUB);
   }
-
-  const grid = fitGrid(size, {
-    width: opts.width,
-    height: opts.height,
-    charAspect: opts.charAspect,
-    terminalCols: opts.terminalCols,
-  });
 
   const detail = await sampleGrid(image, grid, SUB);
   const frame = mapGrid(analyze(detail, grid, SUB, edges), {
@@ -74,15 +81,13 @@ export async function convert(
   }
 }
 
-/**
- * Spreading an object with explicit `undefined` values wipes out the defaults
- * underneath it, which is exactly what a caller passing `{ width: flags.width }`
- * ends up doing for every flag the user left off.
- */
-function defined<T extends object>(value: T): Partial<T> {
-  return Object.fromEntries(
-    Object.entries(value).filter(([, v]) => v !== undefined),
-  ) as Partial<T>;
+function fit(opts: ConvertOptions, size: { width: number; height: number }): Grid {
+  return fitGrid(size, {
+    width: opts.width,
+    height: opts.height,
+    charAspect: opts.charAspect,
+    terminalCols: opts.terminalCols,
+  });
 }
 
 function estimateCols(opts: ConvertOptions): number {

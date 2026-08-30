@@ -21,25 +21,63 @@ async function readStdin(): Promise<Buffer> {
   return buf;
 }
 
-/** Opens the buffer with EXIF orientation applied. */
-export function open(input: Buffer): sharp.Sharp {
-  return sharp(input, { failOn: 'none' }).rotate();
+/** The nominal size of a vector, and the format it was read from. */
+export interface Probe {
+  size: Size;
+  /** sharp's format tag, so `svg` can be told apart from a bitmap. */
+  format: string;
+}
+
+/** Dots per inch a vector is rendered at when nobody says otherwise. */
+const BASE_DENSITY = 72;
+
+/** sharp refuses a density beyond this. */
+const MAX_DENSITY = 100_000;
+
+/**
+ * Opens the buffer with EXIF orientation applied. `density` only reaches a
+ * vector, where it decides the size of the raster the rest of the pipeline sees.
+ */
+export function open(input: Buffer, density?: number): sharp.Sharp {
+  return sharp(input, { failOn: 'none', ...(density === undefined ? {} : { density }) }).rotate();
 }
 
 /**
- * Dimensions after EXIF rotation. `metadata()` reports the stored dimensions,
- * which are transposed for orientations 5 through 8.
+ * Dimensions after EXIF rotation, alongside the source format. `metadata()`
+ * reports the stored dimensions, which are transposed for orientations 5
+ * through 8, and for a vector it reports the nominal size at `BASE_DENSITY`.
  */
-export async function orientedSize(input: Buffer): Promise<Size> {
+export async function probe(input: Buffer): Promise<Probe> {
   let meta: sharp.Metadata;
   try {
     meta = await sharp(input, { failOn: 'none' }).metadata();
   } catch (err) {
     throw new DecodeError(`not a recognisable image: ${(err as Error).message}`);
   }
-  const { width, height, orientation } = meta;
+  const { width, height, orientation, format } = meta;
   if (!width || !height) throw new DecodeError('image has no dimensions');
-  return (orientation ?? 1) >= 5 ? { width: height, height: width } : { width, height };
+  return {
+    size: (orientation ?? 1) >= 5 ? { width: height, height: width } : { width, height },
+    format: format ?? '',
+  };
+}
+
+/** True for a source that can be re-rendered at any resolution without loss. */
+export function isVector(probed: Probe): boolean {
+  return probed.format === 'svg';
+}
+
+/**
+ * The density that renders a vector at the width the grid is about to sample.
+ * At the default 72 dpi a 318 unit wide logo rasterises to 318 pixels, which a
+ * 128 column grid then *upscales* to 512 samples: the hairlines are averaged
+ * away before anything has looked at them. Only the width is matched, because
+ * cells are never wider than they are tall and so the rows always come out
+ * oversampled rather than short.
+ */
+export function densityFor(nominalWidth: number, targetWidth: number): number {
+  const scaled = Math.ceil((BASE_DENSITY * targetWidth) / nominalWidth);
+  return Math.min(MAX_DENSITY, Math.max(BASE_DENSITY, scaled));
 }
 
 /** Runs the sharp pipeline and returns raw RGBA. */

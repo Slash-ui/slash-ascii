@@ -99,7 +99,7 @@ slash-ascii model <install|list|remove|info|path> [id]
 | `--ramp <chars>` | `" .:-=+*#%@"` | Ramp characters, darkest first |
 | `--invert` | off | Flip the ramp, for light backgrounds |
 | `--no-edges` | edges on | Use brightness alone, no line characters |
-| `--no-denoise` | denoise on | Skip the median filter |
+| `--no-denoise` | on for bitmaps | Skip the median filter |
 | `--remove-bg` | off | Keep only the subject. Needs a model |
 | `--model <tier>` | `lite` | `lite` or `full` |
 | `--threshold <n>` | `0.5` | Mask cutoff, 0 to 1 |
@@ -159,6 +159,18 @@ terminal fonts. If your output looks stretched or squashed, this is the knob:
 ```
 slash-ascii photo.jpg --char-aspect 0.45
 ```
+
+## Vector sources
+
+An SVG is rendered at whatever resolution the grid is about to sample, rather
+than at its nominal size, so a 318 unit wide logo feeding a 128 column grid is
+rasterised at 512 pixels instead of being rasterised at 318 and then enlarged.
+Fine strokes stand or fall on that: enlarging a raster cannot put back detail
+the rasteriser was never asked for.
+
+Vectors also skip the median filter by default, having no sensor noise for it to
+remove and a good deal of thin line for it to erode. Set `"denoise": true` in a
+config file if you want it back.
 
 ## Character sets
 

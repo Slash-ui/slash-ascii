@@ -35,6 +35,41 @@ export const CONVERT_DEFAULTS: ConvertOptions = {
   edges: true,
 };
 
+/**
+ * What a vector source implies on its own. It carries no sensor noise for the
+ * median to remove, so the filter is all cost. Still only a default: a config
+ * file or a flag saying otherwise wins.
+ */
+const VECTOR_PRESET: Partial<ConvertOptions> = { denoise: false };
+
+/**
+ * Settles every option for one run. Three layers, each beating the one above
+ * it: the defaults, what the source format implies, and whatever the caller
+ * actually asked for. Keeping the preset underneath the caller is what makes it
+ * a preset rather than a mode.
+ */
+export function resolveOptions(
+  options: Partial<ConvertOptions>,
+  vector: boolean,
+): ConvertOptions {
+  return {
+    ...CONVERT_DEFAULTS,
+    ...(vector ? VECTOR_PRESET : {}),
+    ...defined(options),
+  };
+}
+
+/**
+ * Spreading an object with explicit `undefined` values wipes out the layers
+ * underneath it, which is exactly what a CLI passing `{ width: flags.width }`
+ * ends up doing for every flag the user left off.
+ */
+function defined<T extends object>(value: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, v]) => v !== undefined),
+  ) as Partial<T>;
+}
+
 /** Returns a saliency map, one value per pixel of the raster, in 0..1. */
 export type MaskProvider = (raster: Raster) => Promise<Float32Array>;
 
