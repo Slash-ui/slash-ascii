@@ -9,6 +9,18 @@ commit messages on `main`, so the way to add an entry here is to write the
 commit that earns it. There is no unreleased section: the pending changes are
 whatever the open release pull request is proposing.
 
+## [0.2.0](https://github.com/Slash-ui/slash-ascii/compare/v0.1.2...v0.2.0) (2026-08-30)
+
+
+### Added
+
+* **pipeline:** add a line-art preset for hairline artwork ([8a9833b](https://github.com/Slash-ui/slash-ascii/commit/8a9833be5b3b0ad230d3697c39d5244f5cc69e95))
+
+
+### Fixed
+
+* **pipeline:** render a vector at the size the grid samples ([1fade7a](https://github.com/Slash-ui/slash-ascii/commit/1fade7a36ac382210feef89a946510c68711c111))
+
 ## [0.1.2](https://github.com/Slash-ui/slash-ascii/compare/v0.1.1...v0.1.2) (2026-08-29)
 
 
