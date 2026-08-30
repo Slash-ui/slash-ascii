@@ -1,4 +1,4 @@
-import type sharp from 'sharp';
+import type { Sharp } from 'sharp';
 import type { Raster, Size } from '../raster.js';
 import { rasterize } from './decode.js';
 
@@ -41,7 +41,7 @@ function clamp(cols: number, rows: number, charAspect: number): Grid {
 }
 
 /** Bounds an image to a maximum edge length without enlarging it. */
-export function limit(img: sharp.Sharp, maxEdge: number): sharp.Sharp {
+export function limit(img: Sharp, maxEdge: number): Sharp {
   return img.resize(maxEdge, maxEdge, { fit: 'inside', withoutEnlargement: true });
 }
 
@@ -50,7 +50,7 @@ export function limit(img: sharp.Sharp, maxEdge: number): sharp.Sharp {
  * selection needs sub-cell detail: gradients to find edges, and the half-block
  * and braille charsets address parts of a cell directly.
  */
-export async function sampleGrid(img: sharp.Sharp, grid: Grid, sub: number): Promise<Raster> {
+export async function sampleGrid(img: Sharp, grid: Grid, sub: number): Promise<Raster> {
   return rasterize(
     img.resize(grid.cols * sub, grid.rows * sub, { fit: 'fill', kernel: 'lanczos3' }),
   );

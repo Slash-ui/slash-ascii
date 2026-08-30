@@ -1,4 +1,4 @@
-import type sharp from 'sharp';
+import type { Sharp } from 'sharp';
 import type { ConvertDeps, ConvertInput } from '../options.js';
 import type { Grid } from './resize.js';
 import type { Size } from '../raster.js';
@@ -37,12 +37,12 @@ export async function convert(
   const edges = opts.edges && opts.charset === 'ascii';
 
   /** Renders the source at whatever the next stage is about to sample. */
-  const load = (target: Size): sharp.Sharp => {
+  const load = (target: Size): Sharp => {
     const img = render(input, probed, target);
     return opts.denoise ? denoise(img) : img;
   };
 
-  let image: sharp.Sharp;
+  let image: Sharp;
   let grid: Grid;
 
   if (deps.mask) {

@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import sharp from 'sharp';
+import type { Metadata, OutputInfo, Sharp } from 'sharp';
 import type { Raster, Size } from '../raster.js';
 import { DecodeError, InputError } from '../errors.js';
 
@@ -42,7 +43,7 @@ const MAX_DENSITY = 100_000;
 const MAX_OVERSAMPLE = 4;
 
 /** Opens the buffer with EXIF orientation applied. */
-function open(input: Buffer, density = BASE_DENSITY): sharp.Sharp {
+function open(input: Buffer, density = BASE_DENSITY): Sharp {
   return sharp(input, { failOn: 'none', density }).rotate();
 }
 
@@ -52,7 +53,7 @@ function open(input: Buffer, density = BASE_DENSITY): sharp.Sharp {
  * reports the nominal size at `BASE_DENSITY`.
  */
 export async function probe(input: Buffer): Promise<Probe> {
-  let meta: sharp.Metadata;
+  let meta: Metadata;
   try {
     meta = await sharp(input, { failOn: 'none' }).metadata();
   } catch (err) {
@@ -74,7 +75,7 @@ export async function probe(input: Buffer): Promise<Probe> {
  * samples, averaging the hairlines away before anything has looked at them.
  * A bitmap only ever has the pixels it came with, and is left alone.
  */
-export function render(input: Buffer, probed: Probe, target: Size): sharp.Sharp {
+export function render(input: Buffer, probed: Probe, target: Size): Sharp {
   return open(input, probed.vector ? densityFor(probed.size, target) : undefined);
 }
 
@@ -94,9 +95,9 @@ export function densityFor(nominal: Size, target: Size): number {
 }
 
 /** Runs the sharp pipeline and returns raw RGBA. */
-export async function rasterize(img: sharp.Sharp): Promise<Raster> {
+export async function rasterize(img: Sharp): Promise<Raster> {
   let data: Buffer;
-  let info: sharp.OutputInfo;
+  let info: OutputInfo;
   try {
     ({ data, info } = await img.ensureAlpha().raw().toBuffer({ resolveWithObject: true }));
   } catch (err) {
@@ -110,7 +111,7 @@ export async function rasterize(img: sharp.Sharp): Promise<Raster> {
 }
 
 /** Wraps raw RGBA back into a sharp pipeline. */
-export function fromRaster(raster: Raster): sharp.Sharp {
+export function fromRaster(raster: Raster): Sharp {
   return sharp(Buffer.from(raster.data.buffer, raster.data.byteOffset, raster.data.byteLength), {
     raw: { width: raster.width, height: raster.height, channels: 4 },
   });
