@@ -166,18 +166,33 @@ describe('vector sources', () => {
   const art = (source: Buffer, width: number): Promise<string> =>
     convert(source, { width, charset: 'blocks', format: 'txt', denoise: false });
 
-  it('renders at the width the grid samples rather than the nominal size', () => {
-    // A 240 unit wide vector feeding an 80 column grid needs 320 samples, which
-    // is 96 dpi rather than the 72 the file nominally carries.
-    expect(densityFor(240, 320)).toBe(96);
+  const square = { width: 240, height: 240 };
+
+  it('renders at the size the grid samples rather than the nominal one', () => {
+    // A 240 unit square feeding an 80 column grid needs 320 samples across,
+    // which is 96 dpi rather than the 72 the file nominally carries.
+    expect(densityFor(square, { width: 320, height: 160 })).toBe(96);
+  });
+
+  it('covers whichever axis asks for more, not just the width', () => {
+    // --height and --char-aspect can both leave the rows wanting more samples
+    // than the columns, which matching the width alone would silently miss.
+    expect(densityFor(square, { width: 160, height: 320 })).toBe(96);
   });
 
   it('never renders one smaller than its nominal size', () => {
-    expect(densityFor(240, 40)).toBe(72);
+    expect(densityFor(square, { width: 40, height: 40 })).toBe(72);
+  });
+
+  it('stops short of covering an axis when that would blow up the other', () => {
+    // A wide source asked for a tall grid: covering the rows outright would
+    // rasterise 80000 px across to feed a ten column render.
+    const wide = { width: 1000, height: 100 };
+    expect(densityFor(wide, { width: 40, height: 8000 })).toBeLessThan(300);
   });
 
   it('clamps the density sharp is willing to accept', () => {
-    expect(densityFor(1, 1_000_000)).toBe(100_000);
+    expect(densityFor({ width: 1, height: 1 }, { width: 2_000, height: 2_000 })).toBe(100_000);
   });
 
   it('recognises what can be re-rendered and what cannot', async () => {

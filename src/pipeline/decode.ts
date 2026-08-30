@@ -35,6 +35,15 @@ const BASE_DENSITY = 72;
 const MAX_DENSITY = 100_000;
 
 /**
+ * Ceiling on how many more pixels may be rendered than the grid will sample.
+ * One density scales both axes together, so covering an axis the source is
+ * short on overshoots the other by the same factor: a 1000x100 drawing asked
+ * for a 40x8000 sample grid would otherwise rasterise to 80000x8000, or 2.5 GB,
+ * to feed a ten column render. Past this the taller axis is left short instead.
+ */
+const MAX_OVERSAMPLE = 4;
+
+/**
  * Opens the buffer with EXIF orientation applied. `density` only reaches a
  * vector, where it decides the size of the raster the rest of the pipeline sees.
  */
@@ -68,16 +77,20 @@ export function isVector(probed: Probe): boolean {
 }
 
 /**
- * The density that renders a vector at the width the grid is about to sample.
+ * The density that covers `target` on both axes, within `MAX_OVERSAMPLE`.
  * At the default 72 dpi a 318 unit wide logo rasterises to 318 pixels, which a
  * 128 column grid then *upscales* to 512 samples: the hairlines are averaged
- * away before anything has looked at them. Only the width is matched, because
- * cells are never wider than they are tall and so the rows always come out
- * oversampled rather than short.
+ * away before anything has looked at them. Matching the width alone would be
+ * enough only while cells are no wider than they are tall, which `--char-aspect`
+ * and an explicit `--height` are both free to break.
  */
-export function densityFor(nominalWidth: number, targetWidth: number): number {
-  const scaled = Math.ceil((BASE_DENSITY * targetWidth) / nominalWidth);
-  return Math.min(MAX_DENSITY, Math.max(BASE_DENSITY, scaled));
+export function densityFor(nominal: Size, target: Size): number {
+  const cover = Math.max(target.width / nominal.width, target.height / nominal.height);
+  const budget = Math.sqrt(
+    (MAX_OVERSAMPLE * target.width * target.height) / (nominal.width * nominal.height),
+  );
+  const scale = Math.min(cover, Math.max(1, budget));
+  return Math.min(MAX_DENSITY, Math.max(BASE_DENSITY, Math.ceil(BASE_DENSITY * scale)));
 }
 
 /** Runs the sharp pipeline and returns raw RGBA. */

@@ -1,11 +1,12 @@
 import type sharp from 'sharp';
 import type { ConvertDeps, ConvertOptions } from '../options.js';
 import type { Grid } from './resize.js';
+import type { Size } from '../raster.js';
 import { resolveOptions } from '../options.js';
 import { analyze } from './analyze.js';
 import { cutout } from '../segment/cutout.js';
 import { denoise } from './denoise.js';
-import { FALLBACK_COLS, fitGrid, limit, sampleGrid } from './resize.js';
+import { fitGrid, limit, sampleGrid } from './resize.js';
 import { densityFor, fromRaster, isVector, open, probe, rasterize } from './decode.js';
 import { mapGrid } from './charmap.js';
 import { renderAnsi } from '../render/ansi.js';
@@ -36,9 +37,9 @@ export async function convert(
   // cost of analysis.
   const edges = opts.edges && opts.charset === 'ascii';
 
-  /** Renders the source at whatever width the next stage is about to sample. */
-  const load = (targetWidth: number): sharp.Sharp => {
-    const img = open(input, vector ? densityFor(probed.size.width, targetWidth) : undefined);
+  /** Renders the source at whatever the next stage is about to sample. */
+  const load = (target: Size): sharp.Sharp => {
+    const img = open(input, vector ? densityFor(probed.size, target) : undefined);
     return opts.denoise ? denoise(img) : img;
   };
 
@@ -47,9 +48,11 @@ export async function convert(
 
   if (deps.mask) {
     // The grid cannot be fitted until the subject has been cut out, so the
-    // render width is the one the segmentation stage works at.
-    const target = Math.max(SEGMENT_MAX_DIM, estimateCols(opts) * SUB);
-    const working = await rasterize(limit(load(target), target));
+    // render size is the one the segmentation stage works at. It needs headroom
+    // beyond the sample count: `cutout` crops this raster, and the crop is what
+    // the grid is then sampled from.
+    const edge = Math.max(SEGMENT_MAX_DIM, fit(opts, probed.size).cols * SUB);
+    const working = await rasterize(limit(load(box(probed.size, edge)), edge));
     const subject = cutout(working, await deps.mask(working), opts.threshold);
     if (!subject) deps.warn?.('no subject found in the mask; converting the whole image');
     const chosen = subject ?? working;
@@ -57,7 +60,7 @@ export async function convert(
     grid = fit(opts, { width: chosen.width, height: chosen.height });
   } else {
     grid = fit(opts, probed.size);
-    image = load(grid.cols * SUB);
+    image = load(samples(grid, SUB));
   }
 
   const detail = await sampleGrid(image, grid, SUB);
@@ -91,6 +94,13 @@ function fit(opts: ConvertOptions, size: { width: number; height: number }): Gri
   });
 }
 
-function estimateCols(opts: ConvertOptions): number {
-  return opts.width ?? opts.terminalCols ?? FALLBACK_COLS;
+/** The raster a grid consumes, which is what the source has to be rendered to. */
+function samples(grid: Grid, sub: number): Size {
+  return { width: grid.cols * sub, height: grid.rows * sub };
+}
+
+/** `size` scaled to sit inside a square of `edge`, which is what `limit` bounds it to. */
+function box(size: Size, edge: number): Size {
+  const scale = edge / Math.max(size.width, size.height);
+  return { width: size.width * scale, height: size.height * scale };
 }
