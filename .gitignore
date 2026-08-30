@@ -11,3 +11,6 @@ CLAUDE.md
 .cursorrules
 .aider*
 .github/copilot-instructions.md
+
+# Built by scripts/build-site.mjs for github pages.
+site/dist/

@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { IntegrityError } from '../src/errors.js';
 import { MODELS } from '../src/models/registry.js';
@@ -18,7 +18,11 @@ describe('model directory', () => {
 
   it('otherwise lands in the per-OS cache directory', () => {
     const fallback = resolveModelDir();
-    expect(fallback.endsWith(join('slash-ascii', 'models'))).toBe(true);
+    // Windows puts a "Cache" segment between the two, so the whole tail is not
+    // the same shape everywhere. What holds on every platform is that the
+    // directory is named for the tool and ends at models.
+    expect(fallback).toContain('slash-ascii');
+    expect(fallback.endsWith(`${sep}models`)).toBe(true);
     // env-paths appends "-nodejs" unless told otherwise, which would be an odd
     // path to document in a README.
     expect(fallback).not.toContain('nodejs');

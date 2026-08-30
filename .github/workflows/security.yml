@@ -1,0 +1,96 @@
+name: security
+
+# Three different questions, so three jobs rather than one:
+# is there a secret in the history, is a dependency known-vulnerable, and
+# does the source itself contain a recognised weakness. The schedule is
+# what catches an advisory published after the last commit, which is the
+# usual way a green repository turns red without anybody touching it.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  secrets:
+    name: secret scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # gitleaks reads history, not the worktree: a key that was
+          # committed and then removed is still a leaked key.
+          fetch-depth: 0
+
+      # Pinned to a release rather than gitleaks-action, which requires a
+      # GITLEAKS_LICENSE secret for repositories owned by an organisation.
+      # This is the same binary without the account.
+      - name: install gitleaks
+        env:
+          VERSION: 8.30.1
+        run: |
+          curl -sSfL -o gitleaks.tar.gz \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          ./gitleaks version
+
+      - name: scan the history
+        run: ./gitleaks detect --source . --redact --no-banner --verbose
+
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # The whole tree, printed whatever the outcome, so the log answers
+      # "what is outstanding" without anyone re-running it locally.
+      - name: report every advisory
+        run: npm audit || true
+
+      # What a user installs. sharp decodes images that arrived from
+      # somewhere else, so a high advisory in the runtime tree is a real
+      # exposure rather than a housekeeping task, and it blocks.
+      - name: fail on a high advisory in the runtime tree
+        run: npm audit --omit=dev --audit-level=high
+
+      # Dev dependencies cannot reach a user, but a critical one can reach
+      # this repository's own release, so it stops the build too.
+      - name: fail on a critical advisory anywhere
+        run: npm audit --audit-level=critical
+
+  codeql:
+    name: code scanning
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          queries: security-and-quality
+
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:javascript-typescript

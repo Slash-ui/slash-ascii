@@ -27,9 +27,17 @@ jobs:
 
       - run: npm run typecheck
 
+      # Before the tests, not after: the cli suite drives dist/cli.js when it
+      # exists, which is both the artefact users run and plain javascript that
+      # loads on every platform.
+      - run: npm run build
+
       - run: npm test
 
-      - run: npm run build
+      # The site renders its own examples through the built library, so a
+      # template or a script that no longer matches the api fails here rather
+      # than on the deploy.
+      - run: npm run build:site
 
   commits:
     name: commit messages

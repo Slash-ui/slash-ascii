@@ -1,4 +1,5 @@
 import { execFile } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
@@ -8,10 +9,20 @@ import { describe, expect, it } from 'vitest';
 import { fixturePath, inked, withTempDir } from './helpers.js';
 
 const run = promisify(execFile);
-const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
-// Resolved here rather than passed as a bare specifier: some cases run the CLI
-// from a temporary directory, where "tsx" would not resolve.
-const TSX = createRequire(import.meta.url).resolve('tsx');
+
+/**
+ * Prefer the built entry point: it is the artefact users actually run, and it
+ * is plain javascript, which a bare `node` can load on every platform. The
+ * typescript source through tsx is the fallback for a working copy that has
+ * not been built, and it is the arrangement that made this whole file fail on
+ * windows. `npm run build` before `npm test` keeps ci on the first path.
+ */
+const BUILT = fileURLToPath(new URL('../dist/cli.js', import.meta.url));
+const ARGV0 = existsSync(BUILT)
+  ? [BUILT]
+  : // Resolved here rather than passed as a bare specifier: some cases run the
+    // CLI from a temporary directory, where "tsx" would not resolve.
+    ['--import', createRequire(import.meta.url).resolve('tsx'), fileURLToPath(new URL('../src/cli.ts', import.meta.url))];
 
 interface Result {
   code: number;
@@ -27,7 +38,7 @@ interface Options {
 /** Runs the CLI as a real process, because exit codes are part of its contract. */
 async function cli(args: string[], options: Options = {}): Promise<Result> {
   try {
-    const { stdout, stderr } = await run(process.execPath, ['--import', TSX, CLI, ...args], {
+    const { stdout, stderr } = await run(process.execPath, [...ARGV0, ...args], {
       maxBuffer: 8 * 1024 * 1024,
       env: { ...process.env, ...options.env },
       cwd: options.cwd,
