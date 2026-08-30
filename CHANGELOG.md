@@ -9,6 +9,13 @@ commit messages on `main`, so the way to add an entry here is to write the
 commit that earns it. There is no unreleased section: the pending changes are
 whatever the open release pull request is proposing.
 
+## [0.4.0](https://github.com/Slash-ui/slash-ascii/compare/v0.3.1...v0.4.0) (2026-08-30)
+
+
+### Added
+
+* **cache:** refactor model file handling and add tests for large models ([#6](https://github.com/Slash-ui/slash-ascii/issues/6)) ([6619fe9](https://github.com/Slash-ui/slash-ascii/commit/6619fe9819f222485eb6729d21c0ab1921c83e1d))
+
 ## [0.3.1](https://github.com/Slash-ui/slash-ascii/compare/v0.3.0...v0.3.1) (2026-08-30)
 
 
