@@ -1,10 +1,110 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/logo-dark.png">
+  <img alt="Slash UI" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/logo-light.png" width="300">
+</picture>
+
 # slash-ascii
 
-Turns an image into ASCII art in your terminal. It can also strip the
-background first, so you get the subject and nothing else.
+**Turn any image into text art, right in your terminal.**
+
+Photos, logos, screenshots, SVGs. One command, no setup, nothing to configure.
+
+[![npm](https://img.shields.io/npm/v/slash-ascii?color=5F53EF)](https://www.npmjs.com/package/slash-ascii)
+[![licence](https://img.shields.io/npm/l/slash-ascii?color=5F53EF)](LICENSE)
+[![node](https://img.shields.io/node/v/slash-ascii?color=5F53EF)](https://nodejs.org)
+
+</div>
+
+<br>
+
+<img alt="The Slash UI logo rendered as coloured half-block characters in a terminal" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/example-blocks.png">
+
+<div align="center"><sub>The Slash UI logo, drawn with <code>--charset blocks --line-art -w 124</code></sub></div>
+
+<br>
+
+## Try it in one line
+
+If you have [Node.js](https://nodejs.org) 20 or newer, you already have everything you need:
 
 ```
-npx slash-ascii photo.jpg
+npx slash-ascii your-image.png
+```
+
+That's it. No install, no account, no config file. It prints your image to the
+screen as text and exits.
+
+<details>
+<summary><b>Never used a terminal before? Start here.</b></summary>
+
+<br>
+
+A terminal is a window where you type commands instead of clicking buttons.
+Every computer has one built in.
+
+**1. Open it**
+
+| Your computer | How to open the terminal |
+| --- | --- |
+| **Mac** | Press `Cmd` + `Space`, type `Terminal`, press Enter |
+| **Windows** | Press the Start button, type `Terminal`, press Enter |
+| **Linux** | Press `Ctrl` + `Alt` + `T` |
+
+**2. Check you have Node.js**
+
+Type this and press Enter:
+
+```
+node --version
+```
+
+If you see a number like `v20.11.0` or higher, you're ready. If you see
+"command not found", install Node.js from [nodejs.org](https://nodejs.org)
+(pick the button labelled **LTS**), then close and reopen the terminal.
+
+**3. Run it on your own picture**
+
+Type `npx slash-ascii ` — including the space at the end — then **drag your
+image file from Finder or File Explorer straight onto the terminal window**.
+The file's location gets typed out for you. Press Enter.
+
+That drag-and-drop trick saves you ever having to work out what a "path" is.
+
+</details>
+
+## Install it properly
+
+Running with `npx` fetches the tool each time. If you'll use it more than once,
+install it so you can just type `slash-ascii`:
+
+```
+npm install -g slash-ascii
+```
+
+Then:
+
+```
+slash-ascii your-image.png
+```
+
+Requires Node.js 20 or newer. **Installing makes no network requests and runs no
+install scripts.** Nothing is downloaded unless you explicitly ask for
+[background removal](#remove-the-background) later.
+
+## Three ways to draw
+
+The `--charset` option decides which characters get used. Each is better at a
+different thing, so it's worth trying all three on your image.
+
+### `ascii` — the default
+
+Classic text art, using only characters you'd find on a keyboard. Safe to paste
+anywhere: a code comment, a commit message, a chat window, a plain text file.
+
+```
+slash-ascii tiger.jpg
 ```
 
 ```
@@ -35,59 +135,111 @@ npx slash-ascii photo.jpg
 ...................:---:...............-::--:::.........::..................
 ```
 
-That is a photograph of a white tiger, rendered at 76 columns. Characters are
-picked from a density ramp by brightness, except where the gradients inside a
-cell agree on a direction, which gets a line character instead. That is what
-makes the stripes and the outline read as edges rather than as a smear of ramp
-steps.
+A photograph of a white tiger at 76 columns. Brightness picks a character from
+a density ramp — except where a cell contains a clear edge, which gets a line
+character (`-`, `|`, `/`, `\`) instead. That is what makes the stripes read as
+stripes rather than a smear of ramp steps.
 
-With `--remove-bg` the foliage goes and the frame closes in on what is left:
-
-```
-
-                   ==- #**++*+   ++
-                    =#+%-**-++#*+-
-                    |+*=-+**+==+++
-                   ||==+#*#%#*++||
-                   +=--=##*+*#=-|*+
-                   |---=+*-:-*=:-*#*+-
-                  -*+=-:.----:--=##%%|%*%#%*--+--
-                  \==+--::::..:-+#%%/###%%%#%//+%#*/*#*%*------
-                 *#|++=+=::--=*#%%%*/#%%%%##%/=##+=%*+##*+=--=-/-+-
-                #\+=+=*-=+++#%*#%#+#+##%%///////=##***-+*----+#*--+#|
-           --##++=:----=*/**#-%%--#%|##///-/##*%%%++=+**--*--+=-.+#*|++-
-       %%%%#+=-=+*=::-++-##%%%%*%%%%##//*//#%%%##*+/----#**+#+|*|#/-+==-#
-  #######+= :=-::++--#%%%%%%%%%%%####*/*#**%%#*##*+=+------\==-=:-::---*+=
-  ++------  -----%%####*+##*#####+**/-=*+-***++###**--*#-+*-=........:--:-
-           **#/ +*---=-----:         /-:.-=--++--+#----*###**-:.::--=:=
-                                     =.:...::-  -:-:....=----
-```
-
-## Install
-
-There is nothing to install if you only want to run it:
+### `blocks` — the best-looking one
 
 ```
-npx slash-ascii photo.jpg
+slash-ascii your-image.png --charset blocks
 ```
 
-Otherwise:
+Uses the half-block character `▀` with a separate colour above and below, so
+every character carries two pixels. It is not really ASCII any more, which is
+why you have to ask for it — but it looks dramatically better. This is what the
+image at the top of this page uses.
+
+### `braille` — the most detailed
 
 ```
-npm install -g slash-ascii
+slash-ascii your-image.png --charset braille
 ```
 
-Node 20 or newer. No model weights are bundled, and nothing is downloaded when
-you install. See [Offline and model policy](#offline-and-model-policy).
+Packs 2×4 dots into every character, so it resolves far more detail than the
+other two. Best for line drawings and fine structure.
 
-## Usage
+<img alt="The Slash UI logo rendered as braille dot characters in a terminal" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/example-braille.png">
+
+<div align="center"><sub>The same logo with <code>--charset braille --line-art -w 124</code></sub></div>
+
+<br>
+
+Your terminal font needs braille characters for this to look right. Most modern
+ones have them; if you see empty boxes, use `blocks` instead.
+
+## Common things you might want
+
+**Make it bigger or smaller.** Width is measured in characters across:
+
+```
+slash-ascii photo.jpg -w 60      # small
+slash-ascii photo.jpg -w 200     # large
+```
+
+With no `-w`, it fills your terminal window.
+
+**Save it to a file** instead of printing it:
+
+```
+slash-ascii photo.jpg --format txt -o art.txt
+```
+
+**Keep the colours** when saving, as a web page or an image:
+
+```
+slash-ascii photo.jpg --format html -o art.html
+slash-ascii photo.jpg --format svg  -o art.svg
+```
+
+**Convert a logo or drawing** with thin lines — see [Thin lines and
+logos](#thin-lines-and-logos):
+
+```
+slash-ascii logo.svg --charset blocks --line-art -w 124
+```
+
+**Remove the background** and keep only the subject:
+
+```
+slash-ascii portrait.jpg --remove-bg
+```
+
+**Use it on a light-coloured terminal.** Flip the ramp so dark and light aren't
+inverted:
+
+```
+slash-ascii photo.jpg --invert
+```
+
+**Convert an image from the internet** without saving it first:
+
+```
+curl -s https://example.com/photo.jpg | slash-ascii - --format svg -o art.svg
+```
+
+## Something look wrong?
+
+| What you're seeing | Try this |
+| --- | --- |
+| `command not found: npx` | Install [Node.js](https://nodejs.org), then reopen your terminal |
+| Output is stretched or squashed | `--char-aspect 0.45` (see [Sizing](#sizing)) |
+| Too big, or wrapping messily | Set a width: `-w 80` |
+| Everything looks washed out on a light background | `--invert` |
+| No colour at all | `--color true` forces it on |
+| Empty boxes instead of braille dots | Your font lacks braille; use `--charset blocks` |
+| Thin lines in a logo are missing or speckled | `--line-art` |
+| Colour codes appear as `[38;2;...` gibberish in a file | Use `--format txt`, or `--color mono` |
+
+## Full options
 
 ```
 slash-ascii <input> [options]
 slash-ascii model <install|list|remove|info|path> [id]
 ```
 
-`<input>` is a path to an image, or `-` to read one from stdin.
+`<input>` is a path to an image, or `-` to read one from standard input.
 
 | Flag | Default | What it does |
 | --- | --- | --- |
@@ -115,39 +267,6 @@ slash-ascii model <install|list|remove|info|path> [id]
 the thing you reach for constantly, and `--help` is the thing you reach for
 twice.
 
-## Examples
-
-Fit the image to the current terminal, in colour:
-
-```
-slash-ascii photo.jpg
-```
-
-A fixed width, no colour, into a file:
-
-```
-slash-ascii photo.jpg --width 100 --color mono --format txt -o photo.txt
-```
-
-Half blocks, which give each cell an independently coloured top and bottom and
-so double the vertical resolution. Not ASCII any more, but it looks far better:
-
-```
-slash-ascii photo.jpg --charset blocks
-```
-
-Read from stdin, write an SVG you can drop into a page:
-
-```
-curl -s https://example.com/photo.jpg | slash-ascii - --format svg -o photo.svg
-```
-
-Subject only, on a light terminal:
-
-```
-slash-ascii portrait.jpg --remove-bg --invert
-```
-
 ## Sizing
 
 With no `--width` or `--height`, the output is fitted to the terminal width, or
@@ -162,7 +281,7 @@ terminal fonts. If your output looks stretched or squashed, this is the knob:
 slash-ascii photo.jpg --char-aspect 0.45
 ```
 
-## Line art and fine detail
+## Thin lines and logos
 
 A stroke narrower than a character cell is a coverage problem, not a resolution
 problem. A cell paints only once it is at least half covered, so a hairline
@@ -175,8 +294,11 @@ turns off the median filter, which is a majority vote among neighbours that any
 stroke thinner than its 3x3 window loses.
 
 ```
-slash-ascii logo.svg --charset blocks --line-art -w 128
+slash-ascii logo.svg --charset blocks --line-art -w 124
 ```
+
+That is the command behind both screenshots on this page. Without `--line-art`,
+the dashed outlines in the Slash UI mark break up into scattered dots.
 
 It only ever adds ink, never removes it. The cost is that a cutoff low enough to
 catch a stroke also catches the antialiased rim of a solid shape, so silhouettes
@@ -209,19 +331,6 @@ Vectors also skip the median filter by default, having no sensor noise for it to
 remove and a good deal of thin line for it to erode. Set `"denoise": true` in a
 config file if you want it back.
 
-## Character sets
-
-`ascii` is the default: a brightness ramp, with `-`, `|`, `/` and `\` used
-where a cell contains a clear edge.
-
-`blocks` uses `▀` with separate foreground and background colours, so one cell
-carries two pixels. This is the best-looking mode by some distance, and it is
-not ASCII, which is why it is opt-in.
-
-`braille` packs 2x4 dots into each cell using an ordered dither. Highest
-resolution of the three, and the most dependent on your font having decent
-braille coverage.
-
 ## Colour
 
 By default colour is detected from the terminal: truecolor if it is advertised,
@@ -232,7 +341,7 @@ text without escape sequences. `--color` overrides all of that.
 Every coloured line ends with a reset, so a truncated pipe cannot leave your
 terminal painted.
 
-## Background removal
+## Remove the background
 
 `--remove-bg` runs a saliency model over the image, keeps the largest connected
 region of the mask, and crops to it. Without the crop you tend to get a small
@@ -242,6 +351,32 @@ subject adrift in a frame of blanks.
 slash-ascii portrait.jpg --remove-bg
 slash-ascii portrait.jpg --remove-bg --model full --threshold 0.6
 ```
+
+The same tiger, with the foliage gone and the frame closed in on what is left:
+
+```
+
+                   ==- #**++*+   ++
+                    =#+%-**-++#*+-
+                    |+*=-+**+==+++
+                   ||==+#*#%#*++||
+                   +=--=##*+*#=-|*+
+                   |---=+*-:-*=:-*#*+-
+                  -*+=-:.----:--=##%%|%*%#%*--+--
+                  \==+--::::..:-+#%%/###%%%#%//+%#*/*#*%*------
+                 *#|++=+=::--=*#%%%*/#%%%%##%/=##+=%*+##*+=--=-/-+-
+                #\+=+=*-=+++#%*#%#+#+##%%///////=##***-+*----+#*--+#|
+           --##++=:----=*/**#-%%--#%|##///-/##*%%%++=+**--*--+=-.+#*|++-
+       %%%%#+=-=+*=::-++-##%%%%*%%%%##//*//#%%%##*+/----#**+#+|*|#/-+==-#
+  #######+= :=-::++--#%%%%%%%%%%%####*/*#**%%#*##*+=+------\==-=:-::---*+=
+  ++------  -----%%####*+##*#####+**/-=*+-***++###**--*#-+*-=........:--:-
+           **#/ +*---=-----:         /-:.-=--++--+#----*###**-:.::--=:=
+                                     =.:...::-  -:-:....=----
+```
+
+This is the one feature that needs a model file, and it is **not** bundled. The
+first time you use it, the tool explains exactly what it wants to download and
+asks permission. See [Offline and model policy](#offline-and-model-policy).
 
 Two model tiers are available:
 
@@ -350,9 +485,9 @@ need to fetch it on another machine.
 
 ## Configuration file
 
-Settings can live in `slash-ascii.config.json`, `.slash-asciirc`, or a
-`slashAscii` key in `package.json`. Flags beat the config file, which beats the
-defaults.
+If you always pass the same flags, put them in a file instead. Settings can live
+in `slash-ascii.config.json`, `.slash-asciirc`, or a `slashAscii` key in
+`package.json`. Flags beat the config file, which beats the defaults.
 
 ```json
 {
@@ -392,6 +527,9 @@ server, and there is a test file whose whole job is to run the default paths
 with `fetch` rigged to throw.
 
 Fixtures are generated by `scripts/make-fixtures.mjs` and committed.
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the
+commit convention and how releases are cut.
 
 ## Licence
 
