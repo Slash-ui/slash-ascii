@@ -95,8 +95,41 @@ install scripts.** Nothing is downloaded unless you explicitly ask for
 
 ## Three ways to draw
 
-The `--charset` option decides which characters get used. Each is better at a
-different thing, so it's worth trying all three on your image.
+The `--charset` option decides which characters get used. Here is one
+photograph drawn all three ways, at 32 columns wide, with the background
+removed:
+
+<div align="center">
+  <img alt="The original photograph: a 3D-rendered astronaut holding a notepad, against a blurred purple background" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/astro-original.png" width="240">
+  <br>
+  <sub><b>The original</b> — <code>astro.png</code></sub>
+</div>
+
+<br>
+
+<img alt="The astronaut drawn with ASCII characters in a terminal" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/astro-ascii.png">
+
+<div align="center"><sub><code>--charset ascii --line-art -w 32 --remove-bg</code></sub></div>
+
+<br>
+
+<img alt="The astronaut drawn with coloured half-block characters in a terminal" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/astro-blocks.png">
+
+<div align="center"><sub><code>--charset blocks --line-art -w 32 --remove-bg</code></sub></div>
+
+<br>
+
+<img alt="The astronaut drawn with braille dot characters in a terminal" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/astro-braille.png">
+
+<div align="center"><sub><code>--charset braille --line-art -w 32 --remove-bg</code></sub></div>
+
+<br>
+
+Same image, same width, three very different results. Only `--charset` changes
+between them — [`--remove-bg`](#remove-the-background) is the optional extra
+that dropped the studio background, and you don't need it to try a charset.
+
+Each is better at a different thing.
 
 ### `ascii` — the default
 
@@ -159,12 +192,6 @@ slash-ascii your-image.png --charset braille
 
 Packs 2×4 dots into every character, so it resolves far more detail than the
 other two. Best for line drawings and fine structure.
-
-<img alt="The Slash UI logo rendered as braille dot characters in a terminal" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/example-braille.png">
-
-<div align="center"><sub>The same logo with <code>--charset braille --line-art -w 124</code></sub></div>
-
-<br>
 
 Your terminal font needs braille characters for this to look right. Most modern
 ones have them; if you see empty boxes, use `blocks` instead.
@@ -297,8 +324,15 @@ stroke thinner than its 3x3 window loses.
 slash-ascii logo.svg --charset blocks --line-art -w 124
 ```
 
-That is the command behind both screenshots on this page. Without `--line-art`,
-the dashed outlines in the Slash UI mark break up into scattered dots.
+That is the command behind the image at the top of this page. Without
+`--line-art`, the dashed outlines in the Slash UI mark break up into scattered
+dots. The same mark in braille, which resolves the dashes more finely still:
+
+<img alt="The Slash UI logo rendered as braille dot characters in a terminal" src="https://raw.githubusercontent.com/Slash-ui/slash-ascii/main/docs/example-braille.png">
+
+<div align="center"><sub><code>--charset braille --line-art -w 124</code></sub></div>
+
+<br>
 
 It only ever adds ink, never removes it. The cost is that a cutoff low enough to
 catch a stroke also catches the antialiased rim of a solid shape, so silhouettes
@@ -352,7 +386,12 @@ slash-ascii portrait.jpg --remove-bg
 slash-ascii portrait.jpg --remove-bg --model full --threshold 0.6
 ```
 
-The same tiger, with the foliage gone and the frame closed in on what is left:
+Every screenshot in [Three ways to draw](#three-ways-to-draw) uses it: the
+astronaut's purple studio background is gone in all three, and the frame has
+closed in on the figure.
+
+Here it is on the tiger, with the foliage gone and the frame closed in on what
+is left:
 
 ```
 
