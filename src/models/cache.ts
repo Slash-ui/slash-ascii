@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import { pipeline } from 'node:stream/promises';
 import { homedir } from 'node:os';
 import { join, sep } from 'node:path';
@@ -40,6 +40,16 @@ export function resolveModelDir(override?: string): string {
 
 export function modelPath(dir: string, spec: ModelSpec): string {
   return join(dir, spec.filename);
+}
+
+/**
+ * Everything that verifies a cached model works from this one descriptor rather
+ * than re-opening the path. `trusted` can waive the checksum on the strength of
+ * a stat alone, so a name resolved twice is a window in which the file that was
+ * checked and the file that is read need not be the same one.
+ */
+function openModel(dir: string, spec: ModelSpec): Promise<FileHandle> {
+  return open(modelPath(dir, spec), 'r');
 }
 
 /** Replaces the home directory with `~` for display. */
@@ -84,21 +94,26 @@ export type Status =
 
 /** Reports what is in the cache, for the `model` subcommands. */
 export async function inspect(dir: string, spec: ModelSpec): Promise<Status> {
-  let info;
+  let fh;
   try {
-    info = await stat(modelPath(dir, spec));
+    fh = await openModel(dir, spec);
   } catch {
     return { state: 'missing' };
   }
-  const size = sizeMismatch(spec, info.size);
-  if (size) return { state: 'corrupt', detail: size };
-  if (await trusted(dir, spec, info)) return { state: 'installed', bytes: info.size };
+  try {
+    const info = await fh.stat();
+    const size = sizeMismatch(spec, info.size);
+    if (size) return { state: 'corrupt', detail: size };
+    if (await trusted(dir, spec, info)) return { state: 'installed', bytes: info.size };
 
-  const actual = await hashFile(modelPath(dir, spec));
-  if (actual !== spec.sha256) {
-    return { state: 'corrupt', detail: `expected sha256 ${spec.sha256}, found ${actual}` };
+    const actual = await hashFile(fh);
+    if (actual !== spec.sha256) {
+      return { state: 'corrupt', detail: `expected sha256 ${spec.sha256}, found ${actual}` };
+    }
+    return { state: 'installed', bytes: info.size };
+  } finally {
+    await fh.close();
   }
-  return { state: 'installed', bytes: info.size };
 }
 
 /** The file is there. Whether it is the right file is `loadModel`'s decision. */
@@ -117,25 +132,29 @@ export async function exists(dir: string, spec: ModelSpec): Promise<boolean> {
  * second time to check what the read already has in memory.
  */
 export async function loadModel(dir: string, spec: ModelSpec): Promise<Uint8Array> {
-  const path = modelPath(dir, spec);
-  let info;
+  let fh;
   try {
-    info = await stat(path);
+    fh = await openModel(dir, spec);
   } catch {
     throw corrupt(spec, 'the file is missing');
   }
-  const size = sizeMismatch(spec, info.size);
-  if (size) throw corrupt(spec, size);
+  try {
+    const info = await fh.stat();
+    const size = sizeMismatch(spec, info.size);
+    if (size) throw corrupt(spec, size);
 
-  const skipHash = await trusted(dir, spec, info);
-  const bytes = new Uint8Array(await readFile(path));
-  if (!skipHash) {
-    const actual = createHash('sha256').update(bytes).digest('hex');
-    if (actual !== spec.sha256) {
-      throw corrupt(spec, `expected sha256 ${spec.sha256}, found ${actual}`);
+    const skipHash = await trusted(dir, spec, info);
+    const bytes = new Uint8Array(await fh.readFile());
+    if (!skipHash) {
+      const actual = createHash('sha256').update(bytes).digest('hex');
+      if (actual !== spec.sha256) {
+        throw corrupt(spec, `expected sha256 ${spec.sha256}, found ${actual}`);
+      }
     }
+    return bytes;
+  } finally {
+    await fh.close();
   }
-  return bytes;
 }
 
 function corrupt(spec: ModelSpec, detail: string): IntegrityError {
@@ -172,8 +191,8 @@ export async function ensureDir(dir: string): Promise<void> {
   await mkdir(dir, { recursive: true });
 }
 
-async function hashFile(path: string): Promise<string> {
+async function hashFile(fh: FileHandle): Promise<string> {
   const hash = createHash('sha256');
-  await pipeline(createReadStream(path), hash);
+  await pipeline(fh.createReadStream({ autoClose: false }), hash);
   return hash.digest('hex');
 }
