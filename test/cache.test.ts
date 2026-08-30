@@ -1,9 +1,15 @@
-import { writeFile } from 'node:fs/promises';
+import { open, stat, utimes, writeFile } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { IntegrityError } from '../src/errors.js';
 import { MODELS } from '../src/models/registry.js';
-import { inspect, loadModel, removeModel, resolveModelDir } from '../src/models/cache.js';
+import {
+  inspect,
+  loadModel,
+  recordInstall,
+  removeModel,
+  resolveModelDir,
+} from '../src/models/cache.js';
 import { installFromFile } from '../src/models/download.js';
 import { withTempDir } from './helpers.js';
 
@@ -80,6 +86,51 @@ describe('inspecting the cache', () => {
       expect(await removeModel(dir, model)).toBe(true);
       expect(await removeModel(dir, model)).toBe(false);
       expect(await inspect(dir, model)).toEqual({ state: 'missing' });
+    });
+  });
+});
+
+// Past 32 MB `trusted` waives the checksum and rules on the manifest alone, so
+// this is the one path where the bytes handed back were never hashed. A sparse
+// file buys the size without the disk.
+describe('a model too large to re-hash on every run', () => {
+  const big = { ...spec, filename: 'big.onnx', bytes: 33 * 1024 * 1024, sha256: realSha };
+
+  const sparse = async (dir: string, bytes: number): Promise<void> => {
+    const fh = await open(join(dir, big.filename), 'w');
+    try {
+      await fh.truncate(bytes);
+    } finally {
+      await fh.close();
+    }
+  };
+
+  it('trusts the manifest instead of re-reading the file', async () => {
+    await withTempDir(async (dir) => {
+      await sparse(dir, big.bytes);
+      await recordInstall(dir, big);
+
+      // realSha is the checksum of an 8-byte payload, so a load that reaches
+      // the hash cannot pass. Reaching it at all is the failure.
+      expect(await inspect(dir, big)).toEqual({ state: 'installed', bytes: big.bytes });
+      expect((await loadModel(dir, big)).byteLength).toBe(big.bytes);
+    });
+  });
+
+  it('re-hashes once the file no longer matches what was recorded', async () => {
+    await withTempDir(async (dir) => {
+      await sparse(dir, big.bytes);
+      await recordInstall(dir, big);
+
+      // Same size, different mtime: the manifest no longer vouches for it, and
+      // the checksum it falls back on is the one this file cannot produce.
+      const path = join(dir, big.filename);
+      const { atime, mtime } = await stat(path);
+      await utimes(path, atime, new Date(mtime.getTime() + 5000));
+
+      const status = await inspect(dir, big);
+      expect(status.state).toBe('corrupt');
+      await expect(loadModel(dir, big)).rejects.toThrow(IntegrityError);
     });
   });
 });
