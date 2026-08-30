@@ -1,13 +1,13 @@
 import type sharp from 'sharp';
-import type { ConvertDeps, ConvertOptions } from '../options.js';
+import type { ConvertDeps, ConvertInput } from '../options.js';
 import type { Grid } from './resize.js';
 import type { Size } from '../raster.js';
-import { resolveOptions } from '../options.js';
+import { resolveOptions, VECTOR_PRESET } from '../options.js';
 import { analyze } from './analyze.js';
 import { cutout } from '../segment/cutout.js';
 import { denoise } from './denoise.js';
 import { fitGrid, limit, sampleGrid } from './resize.js';
-import { densityFor, fromRaster, isVector, open, probe, rasterize } from './decode.js';
+import { fromRaster, probe, rasterize, render } from './decode.js';
 import { mapGrid } from './charmap.js';
 import { renderAnsi } from '../render/ansi.js';
 import { renderHtml } from '../render/html.js';
@@ -22,14 +22,13 @@ const SEGMENT_MAX_DIM = 1024;
 
 export async function convert(
   input: Buffer,
-  options: Partial<ConvertOptions> = {},
+  options: ConvertInput = {},
   deps: ConvertDeps = {},
 ): Promise<string> {
-  // Read the header first: whether the source is a vector decides some of the
-  // defaults, and its nominal size decides how large to render it.
+  // Read the header first: what the source is decides some of the defaults, and
+  // its nominal size decides how large to render it.
   const probed = await probe(input);
-  const vector = isVector(probed);
-  const opts = resolveOptions(options, vector);
+  const opts = resolveOptions(options, probed.vector ? VECTOR_PRESET : {});
   // Plain text has no way to carry colour. Deciding that here rather than in the
   // CLI is what keeps a library caller and the command line on the same output.
   const color = opts.format === 'txt' ? 'mono' : opts.color;
@@ -39,7 +38,7 @@ export async function convert(
 
   /** Renders the source at whatever the next stage is about to sample. */
   const load = (target: Size): sharp.Sharp => {
-    const img = open(input, vector ? densityFor(probed.size, target) : undefined);
+    const img = render(input, probed, target);
     return opts.denoise ? denoise(img) : img;
   };
 
@@ -47,19 +46,19 @@ export async function convert(
   let grid: Grid;
 
   if (deps.mask) {
-    // The grid cannot be fitted until the subject has been cut out, so the
-    // render size is the one the segmentation stage works at. It needs headroom
-    // beyond the sample count: `cutout` crops this raster, and the crop is what
-    // the grid is then sampled from.
-    const edge = Math.max(SEGMENT_MAX_DIM, fit(opts, probed.size).cols * SUB);
+    // This raster is not only what the model sees: `cutout` crops it and the
+    // crop is what the grid is then sampled from. So it needs headroom for the
+    // crop, not merely the sample count of the uncropped grid, or a subject
+    // filling a fifth of the frame arrives upscaled five times over.
+    const edge = Math.max(SEGMENT_MAX_DIM, fitGrid(probed.size, opts).cols * SUB);
     const working = await rasterize(limit(load(box(probed.size, edge)), edge));
     const subject = cutout(working, await deps.mask(working), opts.threshold);
     if (!subject) deps.warn?.('no subject found in the mask; converting the whole image');
     const chosen = subject ?? working;
     image = fromRaster(chosen);
-    grid = fit(opts, { width: chosen.width, height: chosen.height });
+    grid = fitGrid(chosen, opts);
   } else {
-    grid = fit(opts, probed.size);
+    grid = fitGrid(probed.size, opts);
     image = load(samples(grid, SUB));
   }
 
@@ -83,15 +82,6 @@ export async function convert(
     default:
       return renderAnsi(frame, color);
   }
-}
-
-function fit(opts: ConvertOptions, size: { width: number; height: number }): Grid {
-  return fitGrid(size, {
-    width: opts.width,
-    height: opts.height,
-    charAspect: opts.charAspect,
-    terminalCols: opts.terminalCols,
-  });
 }
 
 /** The raster a grid consumes, which is what the source has to be rendered to. */

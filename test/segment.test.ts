@@ -64,6 +64,37 @@ describe('background removal', () => {
     expect(out.trim()).not.toBe('');
   });
 
+  it('keeps headroom for the crop, not just for the uncropped grid', async () => {
+    // The segmentation raster is also what the final art is sampled from, once
+    // `cutout` has cropped it. Sizing it to the sample count of the *uncropped*
+    // grid leaves a small subject to be enlarged by the crop fraction, so a
+    // vector is rendered with room to spare and `limit` caps it.
+    let seen = { width: 0, height: 0 };
+    const cut = await convert(
+      await fixture('hairline.svg'),
+      { width: 40, format: 'txt' },
+      {
+        mask: async (raster) => {
+          seen = { width: raster.width, height: raster.height };
+          // The fixture's solid square sits over 20..100 of its 240 units, so
+          // a subject there covers about three tenths of each axis.
+          const mask = new Float32Array(raster.width * raster.height);
+          const lo = Math.floor(raster.width * 0.1);
+          const hi = Math.floor(raster.width * 0.4);
+          for (let y = Math.floor(raster.height * 0.1); y < raster.height * 0.4; y++) {
+            mask.fill(1, y * raster.width + lo, y * raster.width + hi);
+          }
+          return mask;
+        },
+      },
+    );
+    // A subject covering three tenths of each axis leaves a ~307 px crop out of
+    // a 1024 px render, comfortably over the 160 samples 40 columns wants.
+    // Rendering only for the uncropped grid would have left 72 px to enlarge.
+    expect(Math.min(seen.width, seen.height)).toBeGreaterThanOrEqual(1024);
+    expect(cut.trim()).not.toBe('');
+  });
+
   it('honours the mask threshold', async () => {
     const image = await fixture('subject.png');
     const soft = async (raster: Raster) => {

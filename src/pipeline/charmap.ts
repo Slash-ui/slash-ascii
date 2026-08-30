@@ -53,14 +53,6 @@ const EDGE_COHERENCE = 0.5;
  */
 export const ALPHA_CUTOFF = 0.5;
 
-/**
- * The bar for line art. A one pixel stroke crossing a cell covers a fraction of
- * it, so the ordinary cutoff drops whichever cells the stroke happens to clip
- * and the line arrives as speckle. Roughly one sub-sample's worth of coverage
- * is enough to say a stroke passed through.
- */
-export const LINE_ART_ALPHA_CUTOFF = 0.15;
-
 const BLANK: RenderCell = { ch: ' ', fg: null, bg: null };
 
 /**

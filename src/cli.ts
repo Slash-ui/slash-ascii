@@ -5,7 +5,7 @@ import { Command, InvalidArgumentError } from 'commander';
 import supportsColor from 'supports-color';
 import type { ColorMode } from './render/ansi.js';
 import type { ColorSetting, FileConfig } from './config.js';
-import type { ConvertDeps, ConvertOptions, Format } from './options.js';
+import type { ConvertDeps, ConvertInput, Format } from './options.js';
 import type { ConsentEnv } from './models/consent.js';
 import type { ModelSpec } from './models/registry.js';
 import type { Status } from './models/cache.js';
@@ -77,7 +77,7 @@ async function runConvert(source: string, _options: unknown, command: Command): 
   ]);
   const input = await readInput(source);
 
-  const options: Partial<ConvertOptions> = {
+  const options: ConvertInput = {
     width: settings.width,
     height: settings.height,
     charAspect: settings.charAspect,

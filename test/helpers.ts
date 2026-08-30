@@ -8,6 +8,10 @@ export const fixturePath = (name: string): string =>
 
 export const fixture = (name: string): Promise<Buffer> => readFile(fixturePath(name));
 
+/** How many cells paint something, across a whole rendering. */
+export const inked = (art: string): number =>
+  [...art].filter((ch) => ch !== ' ' && ch !== '\n').length;
+
 export async function withTempDir<T>(run: (dir: string) => Promise<T>): Promise<T> {
   const dir = await mkdtemp(join(tmpdir(), 'slash-ascii-test-'));
   try {

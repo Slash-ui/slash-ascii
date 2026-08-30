@@ -1,7 +1,7 @@
 export { convert, SUB } from './pipeline/run.js';
-export { CONVERT_DEFAULTS, LINE_ART_PRESET, resolveOptions } from './options.js';
-export type { ConvertOptions, ConvertDeps, Format, MaskProvider } from './options.js';
-export { ALPHA_CUTOFF, LINE_ART_ALPHA_CUTOFF, RAMPS } from './pipeline/charmap.js';
+export { CONVERT_DEFAULTS } from './options.js';
+export type { ConvertInput, ConvertOptions, ConvertDeps, Format, MaskProvider } from './options.js';
+export { RAMPS } from './pipeline/charmap.js';
 export type { Charset, Frame, RenderCell, RGB } from './pipeline/charmap.js';
 export type { Raster, Size } from './raster.js';
 export { readInput } from './pipeline/decode.js';

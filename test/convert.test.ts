@@ -1,12 +1,12 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
-import type { ConvertOptions } from '../src/options.js';
-import { resolveOptions } from '../src/options.js';
+import type { ConvertInput } from '../src/options.js';
+import { LINE_ART_ALPHA_CUTOFF, resolveOptions, VECTOR_PRESET } from '../src/options.js';
 import { convert } from '../src/pipeline/run.js';
-import { ALPHA_CUTOFF, LINE_ART_ALPHA_CUTOFF } from '../src/pipeline/charmap.js';
-import { densityFor, isVector, probe } from '../src/pipeline/decode.js';
+import { ALPHA_CUTOFF } from '../src/pipeline/charmap.js';
+import { densityFor, probe } from '../src/pipeline/decode.js';
 import { fitGrid } from '../src/pipeline/resize.js';
-import { fixture } from './helpers.js';
+import { fixture, inked } from './helpers.js';
 
 describe('grid fitting', () => {
   const square = { width: 100, height: 100 };
@@ -124,35 +124,35 @@ describe('rendering', () => {
 
 describe('resolving options', () => {
   it('runs the median filter on a bitmap, which is where sensor noise lives', () => {
-    expect(resolveOptions({}, false).denoise).toBe(true);
+    expect(resolveOptions({}).denoise).toBe(true);
   });
 
   it('skips it for a vector, which has no noise for it to remove', () => {
-    expect(resolveOptions({}, true).denoise).toBe(false);
+    expect(resolveOptions({}, VECTOR_PRESET).denoise).toBe(false);
   });
 
   it('still takes the filter back if the caller insists', () => {
-    expect(resolveOptions({ denoise: true }, true).denoise).toBe(true);
+    expect(resolveOptions({ denoise: true }, VECTOR_PRESET).denoise).toBe(true);
   });
 
   it('lowers the coverage cutoff for line art and drops the filter with it', () => {
-    const opts = resolveOptions({ lineArt: true }, false);
+    const opts = resolveOptions({ lineArt: true });
     expect(opts.alphaCutoff).toBe(LINE_ART_ALPHA_CUTOFF);
     expect(opts.denoise).toBe(false);
   });
 
   it('leaves the cutoff alone otherwise', () => {
-    expect(resolveOptions({}, false).alphaCutoff).toBe(ALPHA_CUTOFF);
+    expect(resolveOptions({}).alphaCutoff).toBe(ALPHA_CUTOFF);
   });
 
   it('is a preset, so an explicit cutoff beats it', () => {
-    expect(resolveOptions({ lineArt: true, alphaCutoff: 0.4 }, true).alphaCutoff).toBe(0.4);
+    expect(resolveOptions({ lineArt: true, alphaCutoff: 0.4 }, VECTOR_PRESET).alphaCutoff).toBe(0.4);
   });
 
   it('ignores keys that are present but undefined', () => {
     // A CLI builds its options from flags the user did not pass, so every absent
     // flag arrives as an explicit undefined. Those must not erase a preset.
-    const opts = resolveOptions({ lineArt: true, alphaCutoff: undefined } as never, true);
+    const opts = resolveOptions({ lineArt: true, alphaCutoff: undefined }, VECTOR_PRESET);
     expect(opts.alphaCutoff).toBe(LINE_ART_ALPHA_CUTOFF);
     expect(opts.denoise).toBe(false);
   });
@@ -196,8 +196,8 @@ describe('vector sources', () => {
   });
 
   it('recognises what can be re-rendered and what cannot', async () => {
-    expect(isVector(await probe(await fixture('hairline.svg')))).toBe(true);
-    expect(isVector(await probe(await fixture('shapes.png')))).toBe(false);
+    expect((await probe(await fixture('hairline.svg'))).vector).toBe(true);
+    expect((await probe(await fixture('shapes.png'))).vector).toBe(false);
   });
 
   it('matches its own nominal raster while the grid still fits inside it', async () => {
@@ -224,11 +224,7 @@ describe('line art', () => {
   const grid = (art: string, cols: number): string[] =>
     art.split('\n').flatMap((row) => [...row.padEnd(cols)]);
 
-  /** Cells that paint, which is what a hairline either reaches or does not. */
-  const inked = (art: string): number =>
-    [...art].filter((ch) => ch !== ' ' && ch !== '\n').length;
-
-  const hairline = (options: Partial<ConvertOptions>): Promise<string> =>
+  const hairline = (options: ConvertInput): Promise<string> =>
     fixture('hairline.svg').then((svg) =>
       convert(svg, { width: 40, charset: 'blocks', format: 'txt', ...options }),
     );

@@ -20,12 +20,10 @@ async function readStdin(): Promise<Buffer> {
   if (buf.length === 0) throw new InputError('no image data on stdin');
   return buf;
 }
-
-/** The nominal size of a vector, and the format it was read from. */
 export interface Probe {
   size: Size;
-  /** sharp's format tag, so `svg` can be told apart from a bitmap. */
-  format: string;
+  /** Whether the source can be re-rendered at any resolution without loss. */
+  vector: boolean;
 }
 
 /** Dots per inch a vector is rendered at when nobody says otherwise. */
@@ -39,22 +37,19 @@ const MAX_DENSITY = 100_000;
  * One density scales both axes together, so covering an axis the source is
  * short on overshoots the other by the same factor: a 1000x100 drawing asked
  * for a 40x8000 sample grid would otherwise rasterise to 80000x8000, or 2.5 GB,
- * to feed a ten column render. Past this the taller axis is left short instead.
+ * to feed a ten column render. Past this the taller axis is simply left short.
  */
 const MAX_OVERSAMPLE = 4;
 
-/**
- * Opens the buffer with EXIF orientation applied. `density` only reaches a
- * vector, where it decides the size of the raster the rest of the pipeline sees.
- */
-export function open(input: Buffer, density?: number): sharp.Sharp {
-  return sharp(input, { failOn: 'none', ...(density === undefined ? {} : { density }) }).rotate();
+/** Opens the buffer with EXIF orientation applied. */
+function open(input: Buffer, density = BASE_DENSITY): sharp.Sharp {
+  return sharp(input, { failOn: 'none', density }).rotate();
 }
 
 /**
- * Dimensions after EXIF rotation, alongside the source format. `metadata()`
- * reports the stored dimensions, which are transposed for orientations 5
- * through 8, and for a vector it reports the nominal size at `BASE_DENSITY`.
+ * Dimensions after EXIF rotation. `metadata()` reports the stored dimensions,
+ * which are transposed for orientations 5 through 8, and for a vector it
+ * reports the nominal size at `BASE_DENSITY`.
  */
 export async function probe(input: Buffer): Promise<Probe> {
   let meta: sharp.Metadata;
@@ -67,22 +62,27 @@ export async function probe(input: Buffer): Promise<Probe> {
   if (!width || !height) throw new DecodeError('image has no dimensions');
   return {
     size: (orientation ?? 1) >= 5 ? { width: height, height: width } : { width, height },
-    format: format ?? '',
+    // svg is the only thing sharp decodes that is not already a grid of pixels.
+    vector: format === 'svg',
   };
 }
 
-/** True for a source that can be re-rendered at any resolution without loss. */
-export function isVector(probed: Probe): boolean {
-  return probed.format === 'svg';
+/**
+ * Opens the source rendered large enough to cover `target`. A vector is
+ * rendered at that size outright; at the default 72 dpi a 318 unit wide logo
+ * rasterises to 318 pixels, which a 128 column grid then *upscales* to 512
+ * samples, averaging the hairlines away before anything has looked at them.
+ * A bitmap only ever has the pixels it came with, and is left alone.
+ */
+export function render(input: Buffer, probed: Probe, target: Size): sharp.Sharp {
+  return open(input, probed.vector ? densityFor(probed.size, target) : undefined);
 }
 
 /**
  * The density that covers `target` on both axes, within `MAX_OVERSAMPLE`.
- * At the default 72 dpi a 318 unit wide logo rasterises to 318 pixels, which a
- * 128 column grid then *upscales* to 512 samples: the hairlines are averaged
- * away before anything has looked at them. Matching the width alone would be
- * enough only while cells are no wider than they are tall, which `--char-aspect`
- * and an explicit `--height` are both free to break.
+ * Matching the width alone would be enough only while cells are no wider than
+ * they are tall, which `--char-aspect` and an explicit `--height` are both free
+ * to break.
  */
 export function densityFor(nominal: Size, target: Size): number {
   const cover = Math.max(target.width / nominal.width, target.height / nominal.height);

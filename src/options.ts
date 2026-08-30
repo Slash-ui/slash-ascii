@@ -1,7 +1,7 @@
 import type { Charset } from './pipeline/charmap.js';
 import type { ColorMode } from './render/ansi.js';
 import type { Raster } from './raster.js';
-import { ALPHA_CUTOFF, LINE_ART_ALPHA_CUTOFF, RAMPS } from './pipeline/charmap.js';
+import { ALPHA_CUTOFF, RAMPS } from './pipeline/charmap.js';
 
 export type Format = 'ansi' | 'txt' | 'html' | 'svg';
 
@@ -21,13 +21,12 @@ export interface ConvertOptions {
   edges: boolean;
   /** Coverage a cell needs before it paints, 0..1. */
   alphaCutoff: number;
-  /**
-   * Treat the source as line art: keep hairlines that the ordinary settings
-   * average away. A preset over the options below, not a mode of its own.
-   */
-  lineArt: boolean;
   /** Used when no width is given. */
   terminalCols?: number;
+}
+
+export interface ConvertInput extends Partial<ConvertOptions> {
+  lineArt?: boolean;
 }
 
 export const CONVERT_DEFAULTS: ConvertOptions = {
@@ -41,42 +40,46 @@ export const CONVERT_DEFAULTS: ConvertOptions = {
   threshold: 0.5,
   edges: true,
   alphaCutoff: ALPHA_CUTOFF,
-  lineArt: false,
 };
+
+export const LINE_ART_ALPHA_CUTOFF = 0.15;
 
 /**
  * What `lineArt` stands for. Applied over the defaults and under anything the
  * caller actually asked for, so `--line-art --alpha-cutoff 0.3` is the user's
  * number and not this one.
  */
-export const LINE_ART_PRESET: Partial<ConvertOptions> = {
+export const LINE_ART_PRESET: Readonly<Partial<ConvertOptions>> = Object.freeze({
   // A median filter is a majority vote among neighbours, which a stroke thinner
   // than the 3x3 window always loses.
   denoise: false,
   alphaCutoff: LINE_ART_ALPHA_CUTOFF,
-};
+});
 
 /**
  * What a vector source implies on its own. It carries no sensor noise for the
  * median to remove, so the filter is all cost. Still only a default: a config
  * file or a flag saying otherwise wins.
  */
-const VECTOR_PRESET: Partial<ConvertOptions> = { denoise: false };
+export const VECTOR_PRESET: Readonly<Partial<ConvertOptions>> = Object.freeze({ denoise: false });
 
 /**
  * Settles every option for one run. Four layers, each beating the one above it:
- * the defaults, what the source format implies, what `lineArt` stands for, and
+ * the defaults, what the source implies, what `lineArt` stands for, and
  * whatever the caller actually asked for. Keeping the presets underneath the
  * caller is what makes them presets rather than modes.
+ *
+ * `sourceDefaults` is a layer rather than a flag so that a second thing worth
+ * inferring from a source composes here instead of widening this signature.
  */
 export function resolveOptions(
-  options: Partial<ConvertOptions>,
-  vector: boolean,
+  { lineArt, ...options }: ConvertInput,
+  sourceDefaults: Readonly<Partial<ConvertOptions>> = {},
 ): ConvertOptions {
   return {
     ...CONVERT_DEFAULTS,
-    ...(vector ? VECTOR_PRESET : {}),
-    ...(options.lineArt ? LINE_ART_PRESET : {}),
+    ...sourceDefaults,
+    ...(lineArt ? LINE_ART_PRESET : {}),
     ...defined(options),
   };
 }

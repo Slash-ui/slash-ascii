@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { fixturePath, withTempDir } from './helpers.js';
+import { fixturePath, inked, withTempDir } from './helpers.js';
 
 const run = promisify(execFile);
 const CLI = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
@@ -46,21 +46,19 @@ describe('the command line', () => {
     expect(result.stdout).toContain('@');
   });
 
-  it('keeps hairlines under --line-art', async () => {
-    const ink = (art: string): number => [...art].filter((ch) => ch !== ' ' && ch !== '\n').length;
+  it('wires --line-art and --alpha-cutoff through to the conversion', async () => {
+    // What the flags mean is settled in convert.test.ts. What is left to check
+    // here is that the command line reaches those options at all.
     const args = [fixturePath('hairline.svg'), '--width', '40', '--charset', 'blocks', '--format', 'txt'];
-    const plain = await cli(args);
-    const lineArt = await cli([...args, '--line-art']);
-    expect(lineArt.code).toBe(0);
-    expect(ink(lineArt.stdout)).toBeGreaterThan(ink(plain.stdout));
-  });
-
-  it('lets --alpha-cutoff override the preset it comes with', async () => {
-    const ink = (art: string): number => [...art].filter((ch) => ch !== ' ' && ch !== '\n').length;
-    const args = [fixturePath('hairline.svg'), '--width', '40', '--charset', 'blocks', '--format', 'txt'];
-    const preset = await cli([...args, '--line-art']);
-    const strict = await cli([...args, '--line-art', '--alpha-cutoff', '0.5']);
-    expect(ink(strict.stdout)).toBeLessThan(ink(preset.stdout));
+    const [plain, lineArt, strict] = await Promise.all([
+      cli(args),
+      cli([...args, '--line-art']),
+      cli([...args, '--line-art', '--alpha-cutoff', '0.5']),
+    ]);
+    for (const result of [plain, lineArt, strict]) expect(result.code).toBe(0);
+    expect(inked(lineArt.stdout)).toBeGreaterThan(inked(plain.stdout));
+    // An explicit cutoff beats the preset that would otherwise have lowered it.
+    expect(inked(strict.stdout)).toBeLessThan(inked(lineArt.stdout));
   });
 
   it('rejects a coverage cutoff outside 0 to 1', async () => {
