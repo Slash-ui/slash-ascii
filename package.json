@@ -1,6 +1,6 @@
 {
   "name": "slash-ascii",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Convert images to ASCII art in your terminal, with optional background removal",
   "keywords": [
     "ascii",
